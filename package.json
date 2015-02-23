@@ -13,7 +13,7 @@
         "jshint": "2.3.0",
         "istanbul": "0.3.5",
         "mocha": "1.13.0",
-        "should": "2.0.2",
+        "should": "~5.0",
         "complexity-report": "1.0.2",
         "plato": "0.6.2",
         "node-jsmeter": "0.1.2",

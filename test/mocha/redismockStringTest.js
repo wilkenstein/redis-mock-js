@@ -79,12 +79,12 @@ describe('getset', function () {
         var k1 = randkey(), k2 = randkey();
         var v = 'value';
         should.not.exist(redismock.getset(k1, v));
-        redismock.exists(k1).should.be.true;
+        redismock.exists(k1).should.be.ok;
         redismock.type(k1).should.equal('string');
         redismock.getset(k2, v, function (err, reply) {
             should.not.exist(err);
             should.not.exist(reply);
-            redismock.exists(k2).should.be.true;
+            redismock.exists(k2).should.be.ok;
             redismock.type(k2).should.equal('string');
             done();
         });
@@ -98,7 +98,7 @@ describe('getset', function () {
             should.not.exist(err);
             should.exist(reply);
             reply.should.equal(v2);
-            redismock.exists(k).should.be.true;
+            redismock.exists(k).should.be.ok;
             redismock.get(k).should.equal(v3);
             done();
         });
@@ -155,7 +155,7 @@ describe('psetex', function () {
             redismock.get(k).should.equal(v);
         }, 800);
         setTimeout(function () {
-            redismock.exists(k).should.be.false;
+            redismock.exists(k).should.be.not.ok;
             done();
         }, 1700);
     });
@@ -167,13 +167,13 @@ describe('set', function () {
         var k1 = randkey(), k2 = randkey();
         var v = 'value';
         redismock.set(k1, v).should.equal('OK');
-        redismock.exists(k1).should.be.true;
+        redismock.exists(k1).should.be.ok;
         redismock.get(k1).should.equal(v);
         redismock.set(k2, v, function (err, reply) {
             should.not.exist(err);
             should.exist(reply);
             reply.should.equal('OK');
-            redismock.exists(k2).should.be.true;
+            redismock.exists(k2).should.be.ok;
             redismock.get(k2).should.equal(v);
             done();
         });
@@ -183,17 +183,92 @@ describe('set', function () {
         var v = 'value';
         redismock.lpush(k1, v);
         redismock.set(k1, v).should.equal('OK');
-        redismock.exists(k1).should.be.true;
+        redismock.exists(k1).should.be.ok;
         redismock.get(k1).should.equal(v);
         redismock.sadd(k2, v);
         redismock.set(k2, v, function (err, reply) {
             should.not.exist(err);
             should.exist(reply);
             reply.should.equal('OK');
-            redismock.exists(k2).should.be.true;
+            redismock.exists(k2).should.be.ok;
             redismock.get(k2).should.equal(v);
             done();
         });
+    });
+    it('should not set a key if the key exists and the nx option is given', function (done) {
+        var k = randkey();
+        var v = 'value', nv = 'nvalue';
+        redismock.set(k, v);
+        redismock.get(k, v).should.equal(v);
+        should.not.exist(redismock.set(k, nv, 'nx'));
+        redismock.get(k, v).should.equal(v);
+        redismock.set(k, nv, 'nx', function (err, reply) {
+            should.not.exist(err);
+            should.not.exist(reply);
+            redismock.get(k, v).should.equal(v);
+            done();
+        });
+    });
+    it('should set a key if the key does not exist and the nx option is given', function (done) {
+        var k = randkey(), k2 = randkey();
+        var v = 'value', v2 = 'v2';
+        redismock.set(k, v, 'nx').should.equal('OK');
+        redismock.get(k).should.equal(v);
+        redismock.set(k2, v2, 'nx', function (err, reply) {
+            should.not.exist(err);
+            reply.should.equal('OK');
+            redismock.get(k2).should.equal(v2);
+            done();
+        });
+    });
+    it('should not set a key if the key does not exist and the xx option is given', function (done) {
+        var k = randkey();
+        var v = 'value';
+        should.not.exist(redismock.set(k, v, 'xx'));
+        redismock.set(k, v, 'xx', function (err, reply) {
+            should.not.exist(err);
+            should.not.exist(reply);
+            done();
+        });
+    });
+    it('should set a key if the key does exist and the xx option is given', function (done) {
+        var k = randkey();
+        var v = 'value', v2 = 'v2';
+        redismock.set(k, v);
+        redismock.set(k, v, 'xx').should.equal('OK');
+        redismock.get(k).should.equal(v);
+        redismock.set(k, v2, 'xx', function (err, reply) {
+            should.not.exist(err);
+            reply.should.equal('OK');
+            redismock.get(k).should.equal(v2);
+            done();
+        });
+    });
+    it('should set and expire a key in seconds if the px key is given', function (done) {
+        this.timeout(5000);
+        var k = randkey();
+        var v = 'value';
+        redismock.set(k, v, 'px', 1500).should.equal('OK');
+        setTimeout(function () {
+            redismock.get(k).should.equal(v);
+        }, 600);
+        setTimeout(function () {
+            redismock.exists(k).should.equal(0);
+            done();
+        }, 1800);
+    });
+    it('should set and expire a key in milliseconds if the px option is given', function (done) {
+        this.timeout(5000);
+        var k = randkey();
+        var v = 'value';
+        redismock.set(k, v, 'ex', 1).should.equal('OK');
+        setTimeout(function () {
+            redismock.get(k).should.equal(v);
+        }, 600);
+        setTimeout(function () {
+            redismock.exists(k).should.equal(0);
+            done();
+        }, 1200);
     });
 });
 
@@ -212,7 +287,7 @@ describe('setex', function () {
             redismock.get(k).should.equal(v);
         }, 500);
         setTimeout(function () {
-            redismock.exists(k).should.be.false;
+            redismock.exists(k).should.not.be.ok;
             done();
         }, 1200);
     });
@@ -224,13 +299,13 @@ describe('setnx', function () {
         var k1 = randkey(), k2 = randkey();
         var v = 'value';
         redismock.setnx(k1, v).should.equal(1);
-        redismock.exists(k1).should.be.true;
+        redismock.exists(k1).should.be.ok;
         redismock.get(k1).should.equal(v);
         redismock.setnx(k2, v, function (err, reply) {
             should.not.exist(err);
             should.exist(reply);
             reply.should.equal(1);
-            redismock.exists(k2).should.be.true;
+            redismock.exists(k2).should.be.ok;
             redismock.get(k2).should.equal(v);
             done();
         });
