@@ -1,5 +1,5 @@
 {
-    "name": "redis-mock",
+    "name": "redis-js",
     "author": "Brian Wilke <wilke.brian@gmail.com>",
     "repository": {
         "type": "git",
@@ -34,5 +34,13 @@
         "redis-mock-min.js",
         "redis-mock-min.map",
         "LICENSE"
+    ],
+    "keywords": [
+        "redis",
+        "mock",
+        "redis mock",
+        "redis testing",
+        "in-memory",
+        "redis in-memory"
     ]
 }

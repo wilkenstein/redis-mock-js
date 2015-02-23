@@ -1,0 +1,7 @@
+{
+  "name": "redis-mock",
+  "version": "0.0.1",
+  "main": "redis-mock.js",
+  "keywords": ["redis", "browser"],
+  "ignore" : ["docs", "test", "*.yml", "CNAME", "index.html", "favicon.ico", "CONTRIBUTING.md"]
+}
