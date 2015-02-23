@@ -230,22 +230,63 @@ describe('lpush', function () {
     });
     it('should push into the left of a list', function (done) {
         var k = randkey();
-        var v1 = 'value', v2 = 'v2';
-        redismock.lpush(k, v1).should.equal(1);
-        redismock.llen(k).should.equal(1);
+        var v1 = 'value', v2 = 'v2', v3 = 'v3';
+        redismock.lpush(k, v1, v2).should.equal(2);
+        redismock.llen(k).should.equal(2);
         redismock.lindex(k, 0).should.equal(v1);
-        redismock.lpush(k, v2, function (err, reply) {
+        redismock.lpush(k, v3, function (err, reply) {
             should.not.exist(err);
-            reply.should.equal(2);
-            redismock.llen(k).should.equal(2);
-            redismock.lindex(k, 0).should.equal(v2);
+            reply.should.equal(3);
+            redismock.llen(k).should.equal(3);
+            redismock.lindex(k, 0).should.equal(v3);
             done();
         });
     });
 });
 
 describe('lpushx', function () {
-    xit('should lpushx');
+    it('should return an error for a key that is not a list', function (done) {
+        var k = randkey();
+        var v = 'value';
+        redismock.set(k, v);
+        (redismock.lpushx(k, v) instanceof Error).should.be.true;
+        redismock.lpushx(k, v, function (err, reply) {
+            should.exist(err);
+            should.not.exist(reply);
+            should.exist(err.message);
+            err.message.indexOf('WRONGTYPE').should.be.above(-1);
+            done();
+        });
+    });
+    it('should do nothing if the key does not exist', function (done) {
+        var k = randkey();
+        var v = 'value';
+        redismock.lpushx(k, v).should.equal(0);
+        redismock.llen(k).should.equal(0);
+        redismock.lpushx(k, v, function (err, reply) {
+            should.not.exist(err);
+            reply.should.equal(0);
+            redismock.llen(k).should.equal(0);
+            done();
+        });
+    });
+    it('should push into the left of a list if the list exists', function (done) {
+        var k = randkey();
+        var v1 = 'value', v2 = 'v2', v3 = 'v3';
+        redismock.lpush(k, v1).should.equal(1);
+        redismock.llen(k).should.equal(1);
+        redismock.lindex(k, 0).should.equal(v1);
+        redismock.lpushx(k, v2).should.equal(2);
+        redismock.llen(k).should.equal(2);
+        redismock.lindex(k, 0).should.equal(v2);
+        redismock.lpushx(k, v3, function (err, reply) {
+            should.not.exist(err);
+            reply.should.equal(3);
+            redismock.llen(k).should.equal(3);
+            redismock.lindex(k, 0).should.equal(v3);
+            done();
+        });
+    });
 });
 
 describe('lrange', function () {
@@ -404,21 +445,250 @@ describe('lset', function () {
 });
 
 describe('ltrim', function () {
-    xit('should ltrim');
+    it('should return an error for a key that is not a list', function (done) {
+        var k = randkey();
+        var v = 'value';
+        redismock.set(k, v);
+        (redismock.ltrim(k, 0, 1) instanceof Error).should.be.true;
+        redismock.lset(k, 0, 1, function (err, reply) {
+            should.exist(err);
+            should.not.exist(reply);
+            err.message.indexOf('WRONGTYPE').should.be.above(-1);
+            done();
+        });
+    });
+    it('should do nothing for a key that does not exist', function (done) {
+        var k = randkey();
+        var v = 'value';
+        redismock.ltrim(k, 0, 1).should.equal('OK');
+        redismock.llen(k).should.equal(0);
+        should.not.exist(redismock.get(k));
+        redismock.ltrim(k, 0, 1, function (err, reply) {
+            should.not.exist(err);
+            reply.should.equal('OK');
+            redismock.llen(k).should.equal(0);
+            should.not.exist(redismock.get(k));
+            done();
+        });
+    });
+    it('should remove the list if start > end', function (done) {
+        var k = randkey();
+        var v = 'value';
+        redismock.lpush(k, v);
+        redismock.llen(k).should.equal(1);
+        redismock.ltrim(k, 1, 0).should.equal('OK');
+        redismock.llen(k).should.equal(0);
+        redismock.rpush(k, v);
+        redismock.ltrim(k, -4, -5, function (err, reply) {
+            should.not.exist(err);
+            reply.should.equal('OK');
+            redismock.llen(k).should.equal(0);
+            should.not.exist(redismock.get(k));
+            done();
+        });
+    });
+    it('should remove the list if start is greater than the end of the list', function (done) {
+        var k = randkey();
+        var v = 'value';
+        redismock.lpush(k, v, v);
+        redismock.llen(k).should.equal(2);
+        redismock.ltrim(k, 3, 4).should.equal('OK');
+        redismock.llen(k).should.equal(0);
+        redismock.lpush(k, v, v);
+        redismock.llen(k).should.equal(2);
+        redismock.ltrim(k, -4, -3, function (err, reply) {
+            should.not.exist(err);
+            reply.should.equal('OK');
+            redismock.llen(k).should.equal(0);
+            should.not.exist(redismock.get(k));
+            done();
+        });
+    });
+    it('should trim the list with in-range indices', function (done) {
+        var k = randkey();
+        var v = 'v', v1 = 'v1';
+        redismock.rpush(k, v, v1, v1, v1, v);
+        redismock.llen(k).should.equal(5);
+        redismock.ltrim(k, 1, 3).should.equal('OK');
+        redismock.llen(k).should.equal(3);
+        redismock.lindex(k, 0).should.equal(v1);
+        redismock.ltrim(k, 1, 0).should.equal('OK');
+        redismock.llen(k).should.equal(0);
+        redismock.rpush(k, v, v1, v1, v1, v);
+        redismock.ltrim(k, -4, -2, function (err, reply) {
+            should.not.exist(err);
+            reply.should.equal('OK');
+            redismock.llen(k).should.equal(3);
+            redismock.lindex(k, 0).should.equal(v1);
+            done();
+        });
+    });
 });
 
 describe('rpop', function () {
-    xit('should rpop');
+    it('should return an error for a key that is not a list', function (done) {
+        var k = randkey();
+        var v = 'value';
+        redismock.set(k, v);
+        (redismock.rpop(k) instanceof Error).should.be.true;
+        redismock.rpop(k, function (err, reply) {
+            should.exist(err);
+            should.not.exist(reply);
+            err.message.indexOf('WRONGTYPE').should.be.above(-1);
+            done();
+        });
+    });
+    it('should return nothing for a key that does not exist', function (done) {
+        var k = randkey();
+        var v = 'value';
+        should.not.exist(redismock.rpop(k));
+        redismock.rpop(k, function (err, reply) {
+            should.not.exist(err);
+            should.not.exist(reply);
+            done();
+        });
+    });
+    it('should return the right element for a list', function (done) {
+        var k = randkey();
+        var v = 'value', v1 = 'v1';
+        redismock.rpush(k, v, v1);
+        redismock.rpop(k).should.equal(v1);
+        redismock.rpop(k, function (err, reply) {
+            should.not.exist(err);
+            reply.should.equal(v);
+            done();
+        });
+    });
 });
 
 describe('rpoplpush', function () {
-    xit('should rpoplpush');
+    it('should return an error for a source key that is not a list', function (done) {
+        var k = randkey();
+        var v = 'value';
+        redismock.set(k, v);
+        (redismock.rpoplpush(k, randkey()) instanceof Error).should.be.true;
+        redismock.rpoplpush(k, randkey(), function (err, reply) {
+            should.exist(err);
+            should.not.exist(reply);
+            err.message.indexOf('WRONGTYPE').should.be.above(-1);
+            done();
+        });
+    });
+    it('should return an error for a destination key that is not a list', function (done) {
+        var k1 = randkey(), k2 = randkey();
+        var v = 'value';
+        redismock.lpush(k1, v);
+        redismock.set(k2, v);
+        (redismock.rpoplpush(k1, k2) instanceof Error).should.be.true;
+        redismock.lpush(k1, v);
+        redismock.rpoplpush(k1, k2, function (err, reply) {
+            should.exist(err);
+            should.not.exist(reply);
+            err.message.indexOf('WRONGTYPE').should.be.above(-1);
+            done();
+        });
+    });
+    it('should do nothing for an empty list', function (done) {
+        var k1 = randkey(), k2 = randkey();
+        var v = 'value';
+        redismock.lpush(k2, v);
+        should.not.exist(redismock.rpoplpush(k1, k2));
+        redismock.rpoplpush(k1, k2, function (err, reply) {
+            should.not.exist(err);
+            should.not.exist(reply);
+            done();
+        });
+    });
+    it('should pop from the right and push to the left between source and destination', function (done) {
+        var k1 = randkey(), k2 = randkey();
+        var v = 'v', nv = 'nv';
+        redismock.lpush(k1, v, nv);
+        redismock.lpush(k2, v, nv);
+        redismock.rpoplpush(k1, k2).should.equal(nv);
+        redismock.llen(k2).should.equal(3);
+        redismock.lindex(k2, 0).should.equal(nv);
+        redismock.llen(k1).should.equal(1);
+        redismock.lindex(k1, 0).should.equal(v);
+        redismock.rpoplpush(k1, k2, function (err, reply) {
+            redismock.llen(k2).should.equal(4);
+            redismock.lindex(k2, 0).should.equal(v);
+            redismock.llen(k1).should.equal(0);
+            done();
+        });
+    });
 });
 
 describe('rpush', function () {
-    xit('should rpush');
+    it('should return an error for a key that is not a list', function (done) {
+        var k = randkey();
+        var v = 'value';
+        redismock.set(k, v);
+        (redismock.rpush(k, v) instanceof Error).should.be.true;
+        redismock.rpush(k, v, function (err, reply) {
+            should.exist(err);
+            should.not.exist(reply);
+            err.message.indexOf('WRONGTYPE').should.be.above(-1);
+            done();
+        });
+    });
+    it('should push into the right of a list', function (done) {
+        var k = randkey();
+        var v1 = 'v1', v2 = 'v2', v3 = 'v3';
+        redismock.rpush(k, v1, v2);
+        redismock.llen(k).should.equal(2);
+        redismock.lindex(k, 0).should.equal(v1);
+        redismock.rpush(k, v3, function (err, reply) {
+            should.not.exist(err);
+            reply.should.equal(3);
+            redismock.llen(k).should.equal(3);
+            redismock.lindex(k, 0).should.equal(v1);
+            redismock.lindex(k, -1).should.equal(v3);
+            done();
+        });
+    });
 });
 
 describe('rpushx', function () {
-    xit('should rpushx');
+    it('should return an error for a key that is not a list', function (done) {
+        var k = randkey();
+        var v = 'value';
+        redismock.set(k, v);
+        (redismock.rpushx(k, v) instanceof Error).should.be.true;
+        redismock.rpushx(k, v, function (err, reply) {
+            should.exist(err);
+            should.not.exist(reply);
+            should.exist(err.message);
+            err.message.indexOf('WRONGTYPE').should.be.above(-1);
+            done();
+        });
+    });
+    it('should do nothing if the key does not exist', function (done) {
+        var k = randkey();
+        var v = 'value';
+        redismock.rpushx(k, v).should.equal(0);
+        redismock.llen(k).should.equal(0);
+        redismock.rpushx(k, v, function (err, reply) {
+            should.not.exist(err);
+            reply.should.equal(0);
+            redismock.llen(k).should.equal(0);
+            done();
+        });
+    });
+    it('should push into the right of a list if the list exists', function (done) {
+        var k = randkey();
+        var v1 = 'value', v2 = 'v2', v3 = 'v3';
+        redismock.lpush(k, v1).should.equal(1);
+        redismock.llen(k).should.equal(1);
+        redismock.lindex(k, -1).should.equal(v1);
+        redismock.rpushx(k, v2).should.equal(2);
+        redismock.llen(k).should.equal(2);
+        redismock.lindex(k, -1).should.equal(v2);
+        redismock.rpushx(k, v3, function (err, reply) {
+            should.not.exist(err);
+            reply.should.equal(3);
+            redismock.llen(k).should.equal(3);
+            redismock.lindex(k, -1).should.equal(v3);
+            done();
+        });
+    });
 });

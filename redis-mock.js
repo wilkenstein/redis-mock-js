@@ -273,6 +273,17 @@
             .end();
     };
 
+    redismock.lpushx = function (key, element, callback) {
+        return this
+            .ifType(key, 'list', callback)
+            .thenex(function () {
+                cache[key].unshift(element);
+                return cb(callback)(null, cache[key].length);
+            })
+            .thennx(function () { return cb(callback)(null, 0); })
+            .end();
+    };
+
     redismock.rpush = function (key, element, callback) {
         var g = gather(this.rpush).apply(this, arguments);
         callback = g.callback;
@@ -283,6 +294,17 @@
                 cache[key] = cache[key].concat(g.list);
                 return cb(callback)(null, cache[key].length);
             })
+            .end();
+    };
+
+    redismock.rpushx = function (key, element, callback) {
+        return this
+            .ifType(key, 'list', callback)
+            .thenex(function () {
+                cache[key].push(element);
+                return cb(callback)(null, cache[key].length);
+            })
+            .thennx(function () { return cb(callback)(null, 0); })
             .end();
     };
 
@@ -324,7 +346,7 @@
             .thenex(function () {
                 var tmpS, tmpE;
                 if (start > cache[key].length - 1 || start > end) {
-                    delete cache[key];
+                    cache[key] = []
                 }
                 else {
                     if (start < 0 && end < 0) {
@@ -342,7 +364,12 @@
                     cache[key] = cache[key].slice(start, end + 1);
                 }
             })
-            .then(function () { return cb(callback)(null, 'OK'); })
+            .then(function () { 
+                if (this.exists(key) && !cache[key].length) {
+                    delete cache[key];
+                }
+                return cb(callback)(null, 'OK');
+            })
             .end();
     };
 
@@ -404,8 +431,17 @@
     };
 
     redismock.rpoplpush = function (source, dest, callback) {
-        var element = this.rpop(source);
-        this.lpush(dest, element);
+        var element, reply;
+        element = this.rpop(source);
+        if (element instanceof Error) {
+            return cb(callback)(element);
+        }
+        if (element) {
+            reply = this.lpush(dest, element);
+            if (reply instanceof Error) {
+                return cb(callback)(reply);
+            }
+        }
         return cb(callback)(null, element);
     };
 
