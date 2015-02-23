@@ -483,24 +483,68 @@
 
     redismock.sadd = function (key, member, callback) {
         var g = gather(this.sadd).apply(this, arguments);
+        var count = 0;
         callback = g.callback;
         return this
             .ifType(key, 'set', callback)
             .thennx(function () { cache[sets][key] = {}; })
             .then(function () {
                 g.list.forEach(function (m) {
-                    cache[sets][key][m.toString()] = m;
+                    if (!(m.toString() in cache[sets][key])) {
+                        cache[sets][key][m.toString()] = m;
+                        count += 1;
+                    }
                 });
-                return cb(callback)(null, 1);
+                return cb(callback)(null, count);
             })
             .end();
     };
 
-    redismock.srandmember = function (key, callback) {
+    redismock.scard = function (key, callback) {
+        return this
+            .ifType(key, 'set', callback)
+            .thenex(function () { return cb(callback)(null, Object.keys(cache[sets][key]).length); })
+            .thennx(function () { return cb(callback)(null, 0); })
+            .end();
+    };
+
+    redismock.sismember = function (key, member, callback) {
+        return this
+            .ifType(key, 'set', callback)
+            .thenex(function () { return cb(callback)(null, member in cache[sets][key] ? 1 : 0); })
+            .thennx(function () { return cb(callback)(null, 0); })
+            .end();
+    };
+
+    redismock.smembers = function (key, callback) {
+        return this
+            .ifType(key, 'set', callback)
+            .thenex(function () { return cb(callback)(null, Object.keys(cache[sets][key])); })
+            .thennx(function () { return cb(callback)(null, []); })
+            .end();
+    };
+
+    redismock.spop = function (key, callback) {
+        return this.srandmember(key, callback);
+    };
+
+    redismock.srandmember = function (key, count, callback) {
+        if (typeof count === 'function') {
+            callback = count;
+            count = null;
+        }
         return this
             .ifType(key, 'set', callback)
             .thenex(function () {
                 var k = Object.keys(cache[sets][key]);
+                var idx, randos;
+                if (count !== null) {
+                    randos = [];
+                    for (idx = 0; idx < count; idx += 1) {
+                        randos.push(cache[sets][key][k[Math.floor(Math.random() & k.length)]]);
+                    }
+                    return cb(callback)(null, randos);
+                }
                 return cb(callback)(null, cache[sets][key][k[Math.floor(Math.random() * k.length)]]);
             })
             .thennx(function () { return cb(callback)(null, null); })
@@ -528,8 +572,15 @@
     };
 
     redismock.smove = function (source, dest, member, callback) {
-        var r = redismock.srem(source, member);
-        redismock.sadd(dest, member);
+        var r, e;
+        r = redismock.srem(source, member);
+        if (r instanceof Error) {
+            return cb(callback)(r);
+        }
+        e = redismock.sadd(dest, member);
+        if (e instanceof Error) {
+            return cb(callback)(e);
+        }
         return cb(callback)(null, r);
     };
 
@@ -704,16 +755,16 @@
                 if (cache[key] instanceof Array) {
                     type = 'list';
                 }
-                else {
-                    if (key in cache[sets]) {
-                        type = 'set';
-                    }
-                    else if (key in cache[zsets]) {
-                        type = 'zset';
-                    }
-                    else if (key in cache[hashes]) {
-                        type = 'hash';
-                    }
+            }
+            else if (type === 'undefined') {
+                if (key in cache[sets]) {
+                    type = 'set';
+                }
+                else if (key in cache[zsets]) {
+                    type = 'zset';
+                }
+                else if (key in cache[hashes]) {
+                    type = 'hash';
                 }
             }
             return cb(callback)(null, type);
