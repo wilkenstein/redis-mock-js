@@ -1,5 +1,5 @@
 /* jshint unused:true, undef:true, strict:true, plusplus:true */
-/* global setTimeout:false, module:false, exports:true, clearTimeout:false */
+/* global setTimeout:false, module:false, exports:true, clearTimeout:false, console:false */
 
 (function () {
 
@@ -9,15 +9,7 @@
     var root = this;
 
     // Create a safe reference to the mock object for use below.
-    var redismock = function (obj) {
-        if (obj instanceof redismock) {
-            return obj;
-        }
-        if (!(this instanceof redismock)) {
-            return new redismock(obj);
-        }
-        return this;
-    };
+    var redismock = {};
 
     // Export the mock object for **Node.js**, with
     // backwards-compatibility for the old `require()` API. If we're in
@@ -38,17 +30,10 @@
         };
     }
 
-    if (typeof Error === 'undefined') {
-        var Error = function (message) {
-            this.message = message;
-            return this;
-        };
-    }
-
     var cache = {};
     var timeouts = {};
     var mySubscriptions = {};
-    var watchers = {};
+    //var watchers = {};
     var sets = 'sets-' + Math.random();
     var zsets = 'zsets-' + Math.random();
     var hashes = 'hashes-' + Math.random();
@@ -63,6 +48,9 @@
                 setImmediate(function () {
                     callback.apply(context, args);
                 });
+            }
+            if (args[0] instanceof Error) {
+                return args[0];
             }
             return args[1];
         };
@@ -446,8 +434,8 @@
         return cb(callback)(null, 1);
     };
 
-    redismock.zrangebyscore = function (key, min, max, callback) {
-    };
+    /*redismock.zrangebyscore = function (key, min, max, callback) {
+    };*/
 
     redismock.subscribe = function (channel, callback) {
         var idx, len = arguments.length;

@@ -278,7 +278,7 @@ describe('strlen', function () {
         var k = randkey();
         var v = 'value';
         redismock.lpush(k, v);
-        should.not.exist(redismock.strlen(k));
+        (redismock.strlen(k) instanceof Error).should.equal(true);
         redismock.strlen(k, function (err, reply) {
             should.exist(err);
             should.exist(err.message);

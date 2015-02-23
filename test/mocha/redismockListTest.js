@@ -33,7 +33,7 @@ describe('lindex', function () {
         var k = randkey();
         var v = 'value';
         redismock.set(k, v);
-        should.not.exist(redismock.lindex(k, 2));
+        (redismock.lindex(k, 2) instanceof Error).should.be.true;
         redismock.lindex(k, 3, function (err, reply) {
             should.exist(err);
             should.exist(err.message);
@@ -90,7 +90,7 @@ describe('llen', function () {
         var k = randkey();
         var v = 'value';
         redismock.set(k, v);
-        should.not.exist(redismock.llen(k));
+        (redismock.llen(k) instanceof Error).should.be.true;
         redismock.llen(k, function (err, reply) {
             should.exist(err);
             should.exist(err.message);
