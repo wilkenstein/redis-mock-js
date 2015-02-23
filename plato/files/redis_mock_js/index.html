@@ -45,11 +45,11 @@
   <div class="row">
     <div class="col-md-6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">72.31</p>
+      <p class="stat">72.09</p>
     </div>
     <div class="col-md-6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">750</p>
+      <p class="stat">839</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="col-md-6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">161.67</p>
+      <p class="stat">180.11</p>
     </div>
     <div class="col-md-6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">8.66</p>
+      <p class="stat">9.99</p>
     </div>
   </div>
 </div>
@@ -554,6 +554,9 @@
                         break;
                     }
                 }
+                if (!cache[key].length) {
+                    delete cache[key];
+                }
             })
             .then(function () { return cb(callback)(null, cnt); })
             .end();
@@ -575,24 +578,80 @@
 
     redismock.sadd = function (key, member, callback) {
         var g = gather(this.sadd).apply(this, arguments);
+        var count = 0;
         callback = g.callback;
         return this
             .ifType(key, &#039;set&#039;, callback)
             .thennx(function () { cache[sets][key] = {}; })
             .then(function () {
                 g.list.forEach(function (m) {
-                    cache[sets][key][m.toString()] = m;
+                    if (!(m.toString() in cache[sets][key])) {
+                        cache[sets][key][m.toString()] = m;
+                        count += 1;
+                    }
                 });
-                return cb(callback)(null, 1);
+                return cb(callback)(null, count);
             })
             .end();
     };
 
-    redismock.srandmember = function (key, callback) {
+    redismock.scard = function (key, callback) {
+        return this
+            .ifType(key, &#039;set&#039;, callback)
+            .thenex(function () { return cb(callback)(null, Object.keys(cache[sets][key]).length); })
+            .thennx(function () { return cb(callback)(null, 0); })
+            .end();
+    };
+
+    redismock.sismember = function (key, member, callback) {
+        return this
+            .ifType(key, &#039;set&#039;, callback)
+            .thenex(function () { return cb(callback)(null, member in cache[sets][key] ? 1 : 0); })
+            .thennx(function () { return cb(callback)(null, 0); })
+            .end();
+    };
+
+    redismock.smembers = function (key, callback) {
+        return this
+            .ifType(key, &#039;set&#039;, callback)
+            .thenex(function () { return cb(callback)(null, Object.keys(cache[sets][key])); })
+            .thennx(function () { return cb(callback)(null, []); })
+            .end();
+    };
+
+    redismock.spop = function (key, callback) {
+        var r;
+        var rando = this.srandmember(key);
+        if (rando instanceof Error) {
+            return cb(callback)(rando);
+        }
+        r = this.srem(key, rando);
+        if (r instanceof Error) {
+            return cb(callback)(r);
+        }
+        return cb(callback)(null, rando);
+    };
+
+    redismock.srandmember = function (key, count, callback) {
+        if (typeof count === &#039;function&#039;) {
+            callback = count;
+            count = null;
+        }
         return this
             .ifType(key, &#039;set&#039;, callback)
             .thenex(function () {
                 var k = Object.keys(cache[sets][key]);
+                var idx, randos;
+                if (count === 0) {
+                    return cb(callback)(null, null);
+                }
+                if (count) {
+                    randos = [];
+                    for (idx = 0; idx &lt; Math.abs(count); idx += 1) {
+                        randos.push(cache[sets][key][k[Math.floor(Math.random() &amp; k.length)]]);
+                    }
+                    return cb(callback)(null, randos);
+                }
                 return cb(callback)(null, cache[sets][key][k[Math.floor(Math.random() * k.length)]]);
             })
             .thennx(function () { return cb(callback)(null, null); })
@@ -610,18 +669,27 @@
                     var k = m.toString();
                     if (k in cache[sets][key]) {
                         delete cache[sets][key][k];
+                        count += 1;
                     }
-                    count += 1;
                 });
-                return cb(callback)(null, 1);
+                if (!Object.keys(cache[sets][key]).length) {
+                    delete cache[sets][key];
+                }
             })
             .then(function () { return cb(callback)(null, count); })
             .end();
     };
 
     redismock.smove = function (source, dest, member, callback) {
-        var r = redismock.srem(source, member);
-        redismock.sadd(dest, member);
+        var r, e;
+        r = redismock.srem(source, member);
+        if (r instanceof Error) {
+            return cb(callback)(r);
+        }
+        e = redismock.sadd(dest, member);
+        if (e instanceof Error) {
+            return cb(callback)(e);
+        }
         return cb(callback)(null, r);
     };
 
@@ -796,16 +864,16 @@
                 if (cache[key] instanceof Array) {
                     type = &#039;list&#039;;
                 }
-                else {
-                    if (key in cache[sets]) {
-                        type = &#039;set&#039;;
-                    }
-                    else if (key in cache[zsets]) {
-                        type = &#039;zset&#039;;
-                    }
-                    else if (key in cache[hashes]) {
-                        type = &#039;hash&#039;;
-                    }
+            }
+            else if (type === &#039;undefined&#039;) {
+                if (key in cache[sets]) {
+                    type = &#039;set&#039;;
+                }
+                else if (key in cache[zsets]) {
+                    type = &#039;zset&#039;;
+                }
+                else if (key in cache[hashes]) {
+                    type = &#039;hash&#039;;
                 }
             }
             return cb(callback)(null, type);
@@ -818,11 +886,32 @@
         return cb(callback)(null, &#039;&#039;);
     };
     
-    redismock.debug = function (logger) {
+    redismock.dump = function (logger) {
         if (!logger) {
             logger = console;
         }
         logger.log(cache);
+    };
+
+    redismock.warnings = function (logger) {
+        if (!logger) {
+            logger = console;
+        }
+        var mods = [];
+        for (var key in redismock) {
+            if (typeof redismock[key] === &quot;function&quot;) {
+                mods.push(redismock[key]);
+            }
+        }
+        mods.forEach(function (mod) {
+            var m = redismock[mod];
+            redismock[mod] = function () {
+                if (m.length &gt;= 2 &amp;&amp; arguments.length &lt;= m.length - 2) {
+                    logger.warn(&#039;WARN &#039; + key + &#039; passed &#039; + arguments.length + &#039; arguments, but probably expects at least &#039; + capture[key].length - 1 + &#039; arguments&#039;);
+                }
+                return m.apply(redismock, arguments);
+            };
+        });
     };
 
     var modifiers = [&#039;del&#039;, &#039;set&#039;, &#039;lpush&#039;, &#039;rpush&#039;, &#039;lpop&#039;, &#039;rpop&#039;, &#039;ltrim&#039;, &#039;sadd&#039;, &#039;srem&#039;, &#039;zadd&#039;, &#039;zrem&#039;]; // TODO: Add the rest.

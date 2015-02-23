@@ -462,6 +462,9 @@
                         break;
                     }
                 }
+                if (!cache[key].length) {
+                    delete cache[key];
+                }
             })
             .then(function () { return cb(callback)(null, cnt); })
             .end();
@@ -525,7 +528,16 @@
     };
 
     redismock.spop = function (key, callback) {
-        return this.srandmember(key, callback);
+        var r;
+        var rando = this.srandmember(key);
+        if (rando instanceof Error) {
+            return cb(callback)(rando);
+        }
+        r = this.srem(key, rando);
+        if (r instanceof Error) {
+            return cb(callback)(r);
+        }
+        return cb(callback)(null, rando);
     };
 
     redismock.srandmember = function (key, count, callback) {
@@ -538,9 +550,12 @@
             .thenex(function () {
                 var k = Object.keys(cache[sets][key]);
                 var idx, randos;
-                if (count !== null) {
+                if (count === 0) {
+                    return cb(callback)(null, null);
+                }
+                if (count) {
                     randos = [];
-                    for (idx = 0; idx < count; idx += 1) {
+                    for (idx = 0; idx < Math.abs(count); idx += 1) {
                         randos.push(cache[sets][key][k[Math.floor(Math.random() & k.length)]]);
                     }
                     return cb(callback)(null, randos);
@@ -562,10 +577,12 @@
                     var k = m.toString();
                     if (k in cache[sets][key]) {
                         delete cache[sets][key][k];
+                        count += 1;
                     }
-                    count += 1;
                 });
-                return cb(callback)(null, 1);
+                if (!Object.keys(cache[sets][key]).length) {
+                    delete cache[sets][key];
+                }
             })
             .then(function () { return cb(callback)(null, count); })
             .end();
@@ -777,11 +794,32 @@
         return cb(callback)(null, '');
     };
     
-    redismock.debug = function (logger) {
+    redismock.dump = function (logger) {
         if (!logger) {
             logger = console;
         }
         logger.log(cache);
+    };
+
+    redismock.warnings = function (logger) {
+        if (!logger) {
+            logger = console;
+        }
+        var mods = [];
+        for (var key in redismock) {
+            if (typeof redismock[key] === "function") {
+                mods.push(redismock[key]);
+            }
+        }
+        mods.forEach(function (mod) {
+            var m = redismock[mod];
+            redismock[mod] = function () {
+                if (m.length >= 2 && arguments.length <= m.length - 2) {
+                    logger.warn('WARN ' + key + ' passed ' + arguments.length + ' arguments, but probably expects at least ' + capture[key].length - 1 + ' arguments');
+                }
+                return m.apply(redismock, arguments);
+            };
+        });
     };
 
     var modifiers = ['del', 'set', 'lpush', 'rpush', 'lpop', 'rpop', 'ltrim', 'sadd', 'srem', 'zadd', 'zrem']; // TODO: Add the rest.

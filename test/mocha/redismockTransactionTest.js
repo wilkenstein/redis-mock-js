@@ -31,7 +31,7 @@ describe('multi', function () {
                 done();
             });
     });
-    it.only('should fail if a key in a multi command is being watched and changes', function (done) {
+    it('should fail if a key in a multi command is being watched and changes', function (done) {
         var k = randkey();
         var v1 = 'v1', v2 = 'v2', v3 = 'v3';
         var multi = redismock

@@ -25,7 +25,7 @@
         "test": "node_modules/.bin/istanbul cover node_modules/.bin/_mocha -- -R spec -t 60s -s 5s test/mocha",
         "posttest": "node_modules/.bin/plato -d plato/ redis-mock.js",
         "test-browser": "npm i karma-phantomjs-launcher && ./node_modules/karma/bin/karma start",
-        "build": "uglifyjs redis-mock.js -c \"evaluate=false\" --comments \"/    .*/\" -m --source-map redis-mock-min.map -o redis-mock-min.js",
+        "build-min": "node_modules/.bin/uglifyjs redis-mock.js --source-map redis-mock-min.map -o redis-mock-min.js",
         "doc": "docco redis-mock.js"
     },
     "license": "MIT",

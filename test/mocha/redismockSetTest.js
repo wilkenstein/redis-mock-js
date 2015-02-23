@@ -89,11 +89,88 @@ describe('sinterstore', function () {
 });
 
 describe('sismember', function () {
-    xit('should sismember');
+    it('should return an error for a key that is not a set', function (done) {
+        var k = randkey();
+        var v = 'v';
+        redismock.set(k, v);
+        (redismock.sismember(k, v) instanceof Error).should.be.true;
+        redismock.sismember(k, v, function (err, reply) {
+            should.exist(err);
+            should.not.exist(reply);
+            err.message.indexOf('WRONGTYPE').should.be.above(-1);
+            done();
+        });
+    });
+    it('should return 0 for a key that does not exist', function (done) {
+        var k = randkey();
+        var v = 'v';
+        redismock.sismember(k, v).should.equal(0);
+        redismock.sismember(k, v, function (err, reply) {
+            should.not.exist(err);
+            reply.should.equal(0);
+            done();
+        });
+    });
+    it('should return 0 for a member not in the set', function (done) {
+        var k = randkey();
+        var v = 'v', v1 = 'v1';
+        redismock.sadd(k, v);
+        redismock.sismember(k, v1).should.equal(0);
+        redismock.sismember(k, v1, function (err, reply) {
+            should.not.exist(err);
+            reply.should.equal(0);
+            done();
+        });
+    });
+    it('should return 1 for a member in the set', function (done) {
+        var k = randkey();
+        var v = 'v';
+        redismock.sadd(k, v);
+        redismock.sismember(k, v).should.equal(1);
+        redismock.sismember(k, v, function (err, reply) {
+            should.not.exist(err);
+            reply.should.equal(1);
+            done();
+        });
+    });
 });
 
 describe('smembers', function () {
-    xit('should smembers');
+    it('should return an error for a key that is not a set', function (done) {
+        var k = randkey();
+        var v = 'v';
+        redismock.set(k, v);
+        (redismock.smembers(k) instanceof Error).should.be.true;
+        redismock.smembers(k, function (err, reply) {
+            should.exist(err);
+            should.not.exist(reply);
+            err.message.indexOf('WRONGTYPE').should.be.above(-1);
+            done();
+        });
+    });
+    it('should return an empty array for a key that does not exist', function (done) {
+        var k = randkey();
+        redismock.smembers(k).should.have.lengthOf(0);
+        redismock.smembers(k, function (err, reply) {
+            should.not.exist(err);
+            reply.should.have.lengthOf(0);
+            done();
+        });
+    });
+    it('should return the set members', function (done) {
+        var k = randkey();
+        var v1 = 'v1', v2 = 'v2', v3 = 'v3';
+        redismock.sadd(k, v1, v2, v3);
+        redismock.smembers(k).should.have.lengthOf(3);
+        redismock.smembers(k, function (err, reply) {
+            should.not.exist(err);
+            reply.should.have.lengthOf(3);
+            reply.indexOf(v1).should.be.above(-1);
+            reply.indexOf(v2).should.be.above(-1);
+            reply.indexOf(v3).should.be.above(-1);
+            done();
+        });
+    });
 });
 
 describe('smove', function () {
@@ -155,14 +232,163 @@ describe('smove', function () {
 });
 
 describe('spop', function () {
-    xit('should spop');
+    it('should return an error for a key that is not a set', function (done) {
+        var k = randkey();
+        var v = 'v';
+        redismock.set(k, v);
+        (redismock.spop(k) instanceof Error).should.be.true;
+        redismock.spop(k, function (err, reply) {
+            should.exist(err);
+            should.not.exist(reply);
+            err.message.indexOf('WRONGTYPE').should.be.above(-1);
+            done();
+        });
+    });
+    it('should return nothing for a key that does not exist', function (done) {
+        var k = randkey();
+        var v = 'v';
+        should.not.exist(redismock.spop(k));
+        redismock.spop(k, function (err, reply) {
+            should.not.exist(err);
+            should.not.exist(reply);
+            done();
+        });
+    });
+    it('should remove a random member from the set and return it', function (done) {
+        var k = randkey();
+        var v1 = 'v1', v2 = 'v2', v3 = 'v3';
+        var arr = [v1, v2, v3];
+        redismock.sadd(k, v1, v2, v3);
+        arr.indexOf(redismock.spop(k)).should.be.above(-1);
+        redismock.scard(k).should.equal(2);
+        arr.indexOf(redismock.spop(k)).should.be.above(-1);
+        redismock.scard(k).should.equal(1);
+        redismock.spop(k, function (err, reply) {
+            should.not.exist(err);
+            arr.indexOf(reply).should.be.above(-1);
+            redismock.scard(k).should.equal(0);
+            done();
+        });
+    });
 });
 
 describe('srandmember', function () {
-    xit('should srandmember');
+    it('should return an error for a key that is not a set', function (done) {
+        var k = randkey();
+        var v = 'v';
+        redismock.set(k, v);
+        (redismock.srandmember(k, 2) instanceof Error).should.be.true;
+        redismock.srandmember(k, function (err, reply) {
+            should.exist(err);
+            should.not.exist(reply);
+            err.message.indexOf('WRONGTYPE').should.be.above(-1);
+            done();
+        });
+    });
+    it('should return nothing for a key that does not exist', function (done) {
+        var k = randkey();
+        var v = 'v';
+        should.not.exist(redismock.srandmember(k));
+        redismock.srandmember(k, function (err, reply) {
+            should.not.exist(err);
+            should.not.exist(reply);
+            done();
+        });
+    });
+    it('should return a random member from the set', function (done) {
+        var k = randkey();
+        var v1 = 'v1', v2 = 'v2', v3 = 'v3';
+        var arr = [v1, v2, v3];
+        redismock.sadd(k, v1, v2, v3);
+        arr.indexOf(redismock.srandmember(k)).should.be.above(-1);
+        redismock.srandmember(k, function (err, reply) {
+            should.not.exist(err);
+            arr.indexOf(reply).should.be.above(-1);
+            done();
+        });
+    });
+    it('should return count random members from the set', function (done) {
+        var k = randkey();
+        var v1 = 'v1', v2 = 'v2', v3 = 'v3';
+        var arr = [v1, v2, v3];
+        redismock.sadd(k, v1, v2, v3);
+        var ms = redismock.srandmember(k, 2);
+        ms.should.have.lengthOf(2);
+        ms.forEach(function (m) {
+            arr.indexOf(m).should.be.above(-1);
+        });
+        redismock.srandmember(k, 3, function (err, reply) {
+            should.not.exist(err);
+            reply.should.have.lengthOf(3);
+            reply.forEach(function (r) {
+                arr.indexOf(r).should.be.above(-1);
+            });
+            done();
+        });
+    });
 });
 
 describe('srem', function () {
+    it('should return an error for a key that is not a set', function (done) {
+        var k = randkey();
+        var v = 'v';
+        redismock.set(k, v);
+        (redismock.srem(k, v) instanceof Error).should.be.true;
+        redismock.srem(k, v, function (err, reply) {
+            should.exist(err);
+            should.not.exist(reply);
+            err.message.indexOf('WRONGTYPE').should.be.above(-1);
+            done();
+        });
+    });
+    it('should return 0 for a key that does not exist', function (done) {
+        var k = randkey();
+        var v = 'v';
+        redismock.srem(k, v).should.equal(0);
+        redismock.srem(k, v, function (err, reply) {
+            should.not.exist(err);
+            reply.should.equal(0);
+            done();
+        });
+    });
+    it('should return 0 for an member not in the set', function (done) {
+        var k = randkey();
+        var v = 'v', v1 = 'v1';
+        redismock.sadd(k, v);
+        redismock.srem(k, v1).should.equal(0);
+        redismock.srem(k, v1, function (err, reply) {
+            should.not.exist(err);
+            reply.should.equal(0);
+            done();
+        });
+    });
+    it('should return 1 and remove the member from the set', function (done) {
+        var k = randkey();
+        var v = 'v';
+        redismock.sadd(k, v);
+        redismock.srem(k, v).should.equal(1);
+        redismock.scard(k).should.equal(0);
+        redismock.sadd(k, v);
+        redismock.srem(k, v, function (err, reply) {
+            should.not.exist(err);
+            reply.should.equal(1);
+            redismock.scard(k).should.equal(0);
+            done();
+        });
+    });
+    it('should return count and remove count members from the set', function (done) {
+        var k = randkey();
+        var v = 'v', v1 = 'v1', v2 = 'v2', v3 = 'v3';
+        redismock.sadd(k, v, v1, v3);
+        redismock.srem(k, v1, v).should.equal(2);
+        redismock.scard(k).should.equal(1);
+        redismock.srem(k, v3, v2, function (err, reply) {
+            should.not.exist(err);
+            reply.should.equal(1);
+            redismock.scard(k).should.equal(0);
+            done();
+        });
+    });
     xit('should srem');
 });
 
