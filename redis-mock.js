@@ -33,7 +33,7 @@
     var cache = {};
     var timeouts = {};
     var mySubscriptions = {};
-    //var watchers = {};
+    var watchers = {};
     var sets = 'sets-' + Math.random();
     var zsets = 'zsets-' + Math.random();
     var hashes = 'hashes-' + Math.random();
@@ -346,7 +346,7 @@
             .thenex(function () {
                 var tmpS, tmpE;
                 if (start > cache[key].length - 1 || start > end) {
-                    cache[key] = []
+                    cache[key] = [];
                 }
                 else {
                     if (start < 0 && end < 0) {
@@ -650,6 +650,53 @@
         }
     };
 
+    redismock.watch = function (key) {
+        watchers[key] = false;
+        return this;
+    };
+
+    redismock.multi = function () {
+        var rc = {};
+        var that = this;
+        var err;
+        var toApply = [], replies = [];
+        Object.keys(this).forEach(function (key) {
+            rc[key] = function () {
+                var args = Array.prototype.slice.call(arguments);
+                if (err) {
+                    return;
+                }
+                args.push(function (error, reply) {
+                    if (error) {
+                        err = error;
+                    }
+                    else {
+                        replies.push(reply);
+                    }
+                });
+                toApply.push([key, that[key], that, args]);
+                return this;
+            };
+        });
+        rc.exec = function (callback) {
+            if (toApply.some(function (apply) {
+                if (apply[3][0] in watchers && watchers[apply[3][0]]) {
+                    // FAIL! One of the keys has been modified.
+                    watchers = {};
+                    return true;
+                }
+                return false;
+            })) {
+                return cb(callback)(null, null);
+            }
+            toApply.forEach(function (apply) {
+                apply[1].apply(apply[2], apply[3]);
+            });
+            return cb(callback)(err, replies);
+        };
+        return rc;
+    };
+
     redismock.type = function (key, callback) {
         if (this.exists(key)) {
             var type = typeof cache[key];
@@ -685,4 +732,22 @@
         }
         logger.log(cache);
     };
+
+    var modifiers = ['del', 'set', 'lpush', 'rpush', 'lpop', 'rpop', 'ltrim', 'sadd', 'srem', 'zadd', 'zrem']; // TODO: Add the rest.
+    var capture = {};
+    for (var key in redismock) {
+        if (typeof redismock[key] === "function") {
+            capture[key] = redismock[key];
+        }
+    }
+    modifiers.forEach(function (modifier) {
+        var mod = redismock[modifier];
+        redismock[modifier] = function () {
+            var key = arguments[0];
+            if (key in watchers) {
+                watchers[key] = true;
+            }
+            return mod.apply(capture, arguments);
+        };
+    });
 }).call(this);

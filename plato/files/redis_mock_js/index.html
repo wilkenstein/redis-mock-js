@@ -49,7 +49,7 @@
     </div>
     <div class="col-md-6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">649</p>
+      <p class="stat">750</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="col-md-6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">162.28</p>
+      <p class="stat">161.67</p>
     </div>
     <div class="col-md-6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">7.36</p>
+      <p class="stat">8.66</p>
     </div>
   </div>
 </div>
@@ -125,7 +125,7 @@
     var cache = {};
     var timeouts = {};
     var mySubscriptions = {};
-    //var watchers = {};
+    var watchers = {};
     var sets = &#039;sets-&#039; + Math.random();
     var zsets = &#039;zsets-&#039; + Math.random();
     var hashes = &#039;hashes-&#039; + Math.random();
@@ -365,6 +365,17 @@
             .end();
     };
 
+    redismock.lpushx = function (key, element, callback) {
+        return this
+            .ifType(key, &#039;list&#039;, callback)
+            .thenex(function () {
+                cache[key].unshift(element);
+                return cb(callback)(null, cache[key].length);
+            })
+            .thennx(function () { return cb(callback)(null, 0); })
+            .end();
+    };
+
     redismock.rpush = function (key, element, callback) {
         var g = gather(this.rpush).apply(this, arguments);
         callback = g.callback;
@@ -375,6 +386,17 @@
                 cache[key] = cache[key].concat(g.list);
                 return cb(callback)(null, cache[key].length);
             })
+            .end();
+    };
+
+    redismock.rpushx = function (key, element, callback) {
+        return this
+            .ifType(key, &#039;list&#039;, callback)
+            .thenex(function () {
+                cache[key].push(element);
+                return cb(callback)(null, cache[key].length);
+            })
+            .thennx(function () { return cb(callback)(null, 0); })
             .end();
     };
 
@@ -416,7 +438,7 @@
             .thenex(function () {
                 var tmpS, tmpE;
                 if (start &gt; cache[key].length - 1 || start &gt; end) {
-                    delete cache[key];
+                    cache[key] = [];
                 }
                 else {
                     if (start &lt; 0 &amp;&amp; end &lt; 0) {
@@ -434,7 +456,12 @@
                     cache[key] = cache[key].slice(start, end + 1);
                 }
             })
-            .then(function () { return cb(callback)(null, &#039;OK&#039;); })
+            .then(function () { 
+                if (this.exists(key) &amp;&amp; !cache[key].length) {
+                    delete cache[key];
+                }
+                return cb(callback)(null, &#039;OK&#039;);
+            })
             .end();
     };
 
@@ -496,8 +523,17 @@
     };
 
     redismock.rpoplpush = function (source, dest, callback) {
-        var element = this.rpop(source);
-        this.lpush(dest, element);
+        var element, reply;
+        element = this.rpop(source);
+        if (element instanceof Error) {
+            return cb(callback)(element);
+        }
+        if (element) {
+            reply = this.lpush(dest, element);
+            if (reply instanceof Error) {
+                return cb(callback)(reply);
+            }
+        }
         return cb(callback)(null, element);
     };
 
@@ -706,6 +742,53 @@
         }
     };
 
+    redismock.watch = function (key) {
+        watchers[key] = false;
+        return this;
+    };
+
+    redismock.multi = function () {
+        var rc = {};
+        var that = this;
+        var err;
+        var toApply = [], replies = [];
+        Object.keys(this).forEach(function (key) {
+            rc[key] = function () {
+                var args = Array.prototype.slice.call(arguments);
+                if (err) {
+                    return;
+                }
+                args.push(function (error, reply) {
+                    if (error) {
+                        err = error;
+                    }
+                    else {
+                        replies.push(reply);
+                    }
+                });
+                toApply.push([key, that[key], that, args]);
+                return this;
+            };
+        });
+        rc.exec = function (callback) {
+            if (toApply.some(function (apply) {
+                if (apply[3][0] in watchers &amp;&amp; watchers[apply[3][0]]) {
+                    // FAIL! One of the keys has been modified.
+                    watchers = {};
+                    return true;
+                }
+                return false;
+            })) {
+                return cb(callback)(null, null);
+            }
+            toApply.forEach(function (apply) {
+                apply[1].apply(apply[2], apply[3]);
+            });
+            return cb(callback)(err, replies);
+        };
+        return rc;
+    };
+
     redismock.type = function (key, callback) {
         if (this.exists(key)) {
             var type = typeof cache[key];
@@ -741,6 +824,24 @@
         }
         logger.log(cache);
     };
+
+    var modifiers = [&#039;del&#039;, &#039;set&#039;, &#039;lpush&#039;, &#039;rpush&#039;, &#039;lpop&#039;, &#039;rpop&#039;, &#039;ltrim&#039;, &#039;sadd&#039;, &#039;srem&#039;, &#039;zadd&#039;, &#039;zrem&#039;]; // TODO: Add the rest.
+    var capture = {};
+    for (var key in redismock) {
+        if (typeof redismock[key] === &quot;function&quot;) {
+            capture[key] = redismock[key];
+        }
+    }
+    modifiers.forEach(function (modifier) {
+        var mod = redismock[modifier];
+        redismock[modifier] = function () {
+            var key = arguments[0];
+            if (key in watchers) {
+                watchers[key] = true;
+            }
+            return mod.apply(capture, arguments);
+        };
+    });
 }).call(this);</textarea>
   </div>
 </div>
