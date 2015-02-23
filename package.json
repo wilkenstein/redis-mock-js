@@ -1,0 +1,38 @@
+{
+    "name": "redis-mock",
+    "author": "Brian Wilke <wilke.brian@gmail.com>",
+    "repository": {
+        "type": "git",
+        "url": "git://github.com/wilkenstein/redis-mock-js.git"
+    },
+    "main": "redis-mock.js",
+    "version": "0.0.1",
+    "devDependencies": {
+        "docco": "*",
+        "chance": "0.6.1",
+        "jshint": "2.3.0",
+        "istanbul": "0.3.5",
+        "mocha": "1.13.0",
+        "should": "2.0.2",
+        "complexity-report": "1.0.2",
+        "plato": "0.6.2",
+        "node-jsmeter": "0.1.2",
+        "karma": "~0.12.31",
+        "uglify-js": "2.4.x"
+    },
+    "scripts": {
+        "pretest": "node_modules/.bin/jshint redis-mock.js",
+        "test": "node_modules/.bin/istanbul cover node_modules/.bin/_mocha -- -R spec -t 60s -s 5s test/mocha",
+        "posttest": "node_modules/.bin/plato -d plato/ -r lib/",
+        "test-browser": "npm i karma-phantomjs-launcher && ./node_modules/karma/bin/karma start",
+        "build": "uglifyjs redis-mock.js -c \"evaluate=false\" --comments \"/    .*/\" -m --source-map redis-mock-min.map -o redis-mock-min.js",
+        "doc": "docco redis-mock.js"
+    },
+    "license": "MIT",
+    "files": [
+        "redis-mock.js",
+        "redis-mock-min.js",
+        "redis-mock-min.map",
+        "LICENSE"
+    ]
+}
