@@ -45,11 +45,11 @@
   <div class="row">
     <div class="col-md-6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">72.09</p>
+      <p class="stat">72.14</p>
     </div>
     <div class="col-md-6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">839</p>
+      <p class="stat">1075</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="col-md-6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">180.11</p>
+      <p class="stat">196.70</p>
     </div>
     <div class="col-md-6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">9.99</p>
+      <p class="stat">13.05</p>
     </div>
   </div>
 </div>
@@ -148,8 +148,11 @@
         };
     };
 
-    var gather = function (f) {
+    var gather = function (f, e) {
         var end = f.length;
+        if (e) {
+            end = e;
+        }
         return function () {
             var idx, len = arguments.length;
             var callback;
@@ -159,7 +162,7 @@
                     if (typeof arguments[idx] === &quot;function&quot;) {
                         callback = arguments[idx];
                     }
-                    else if (arguments[idx]) {
+                    else if (arguments[idx] !== null &amp;&amp; arguments[idx] !== undefined) {
                         list.push(arguments[idx]);
                     }
                 }
@@ -694,12 +697,13 @@
     };
 
     redismock.zadd = function (key, score, member, callback) {
-        var g = gather(this.zadd).apply(this, arguments);
+        var g = gather(this.zadd, 3).apply(this, arguments);
         callback = g.callback;
         return this
             .ifType(key, &#039;zset&#039;, callback)
             .thennx(function () { cache[zsets][key] = {}; })
             .then(function () {
+                var count = 0;
                 g
                     .list
                     .map(function (elem, index) {
@@ -714,18 +718,250 @@
                     .forEach(function (sm) {
                         var score = sm[0];
                         var m = sm[1];
+                        var noop = false;
                         if (!(score in cache[zsets][key])) {
                             cache[zsets][key][score] = [];
                         }
-                        cache[zsets][key][score].push(m);
+                        Object
+                            .keys(cache[zsets][key])
+                            .map(function (score) {
+                                return [parseFloat(score), cache[zsets][key][score].indexOf(m)];
+                            })
+                            .filter(function (si) {
+                                return si[1] !== -1;
+                            })
+                            .forEach(function (si) {
+                                if (si[0] !== score) {
+                                    cache[zsets][key][si[0]].splice(si[1], 1);
+                                }
+                                else {
+                                    noop = true;
+                                }
+                            });
+                        if (!noop) {
+                            cache[zsets][key][score].push(m);
+                            count += 1;
+                        }
                     });
-                return cb(callback)(null, 1);
+                return cb(callback)(null, count);
             })
             .end();
     };
 
-    /*redismock.zrangebyscore = function (key, min, max, callback) {
-    };*/
+    redismock.zcard = function (key, callback) {
+        return this
+            .ifType(key, &#039;zset&#039;, callback)
+            .thenex(function () { 
+                var count = Object.keys(cache[zsets][key]).reduce(function (cnt, score) {
+                    return cnt + cache[zsets][key][score].length;
+                }, 0);
+                return cb(callback)(null, count); 
+            })
+            .thennx(function () { return cb(callback)(null, 0); })
+            .end();
+    };
+
+    redismock.zcount = function (key, min, max, callback) {
+        return this
+            .ifType(key, &#039;zset&#039;, callback)
+            .thenex(function () {
+                var count = Object
+                    .keys(cache[zsets][key])
+                    .map(function (score) {
+                        return parseFloat(score);
+                    })
+                    .filter(function (score) {
+                        return min &lt;= score &amp;&amp; score &lt;= max;
+                    })
+                    .reduce(function (cnt, score) {
+                        return cnt + cache[zsets][key][score].length;
+                    }, 0);
+                return cb(callback)(null, count);
+            })
+            .thennx(function () { return cb(callback)(null, 0); })
+            .end();
+    };
+
+    redismock.zrange = function (key, start, stop, callback) {
+        var withscores = false;
+        if (typeof callback !== &quot;function&quot; &amp;&amp; callback === &quot;withscores&quot;) {
+            withscores = true;
+            callback = arguments[4];
+        }
+        if (start &lt; 0) {
+            start = this.zcard(key) + start;
+        }
+        if (stop &lt; 0) {
+            stop = this.zcard(key) + stop;
+        }
+        return this
+            .ifType(key, &#039;zset&#039;, callback)
+            .thenex(function () {
+                var index = 0;
+                var arr = [];
+                Object
+                    .keys(cache[zsets][key])
+                    .map(function (score) {
+                        return parseFloat(score);
+                    })
+                    .sort()
+                    .some(function (score) {
+                        cache[zsets][key][score].forEach(function (member) {
+                            if (start &lt;= index &amp;&amp; index &lt;= stop) {
+                                arr.push(member);
+                                if (withscores) {
+                                    arr.push(score);
+                                }
+                            }
+                            index += 1;
+                        });
+                        if (index &gt; stop) {
+                            return true;
+                        }
+                        return false;
+                    });
+                return cb(callback)(null, arr);
+            })
+            .thennx(function () { return cb(callback)(null, []); })
+            .end();
+    };
+
+    redismock.zrangebyscore = function (key, min, max, callback) {
+        var withscores = false;
+        var limitOffset = -1, limitCount = -1; 
+        var idx, len;
+        var arr = [], offset;
+        var minInclusive = true, maxInclusive = true;
+        if (typeof callback !== &quot;function&quot;) {
+            len = arguments.length;
+            for (idx = 3; idx &lt; len; idx += 1) {
+                if (arguments[idx] === &#039;withscores&#039;) {
+                    withscores = true;
+                }
+                if (typeof arguments[idx] === &quot;function&quot;) {
+                    callback = arguments[idx];
+                }
+                if (arguments[idx] === &quot;limit&quot;) {
+                    limitOffset = arguments[idx + 1];
+                    limitCount = arguments[idx + 2];
+                }
+            }
+        }
+        if (min === &#039;-inf&#039;) {
+            min = Number.NEGATIVE_INFINITY;
+        }
+        if (min === &#039;+inf&#039;) {
+            min = Number.POSITIVE_INFINITY;
+        }
+        if (max === &#039;-inf&#039;) {
+            max = Number.NEGATIVE_INFINITY;
+        }
+        if (max === &#039;+inf&#039;) {
+            max = Number.POSITIVE_INFINITY;
+        }
+        if (min.toString().charAt(0) === &#039;(&#039;) {
+            minInclusive = false;
+            min = parseFloat(min.toString().substr(1));
+        }
+        if (max.toString().charAt(0) === &#039;(&#039;) {
+            maxInclusive = false;
+            max = parseFloat(max.toString().substr(1));
+        }
+        return this
+            .ifType(key, &#039;zset&#039;, callback)
+            .thenex(function () {
+                Object
+                .keys(cache[zsets][key])
+                .map(function (score) {
+                    return parseFloat(score);
+                })
+                .sort()
+                .some(function (score) {
+                    cache[zsets][key][score].some(function (member) {
+                        if (((minInclusive &amp;&amp; min &lt;= score) || (!minInclusive &amp;&amp; min &lt; score)) &amp;&amp; ((maxInclusive &amp;&amp; score &lt;= max) || (!maxInclusive &amp;&amp; score &lt; max))) {
+                            if (limitOffset !== -1 &amp;&amp; offset &gt;= limitOffset) {
+                                if (limitCount !== -1) {
+                                    if (arr.length &lt; limitCount) {
+                                        arr.push(member);
+                                        if (withscores) {
+                                            arr.push(score);
+                                        }
+                                    }
+                                    else {
+                                        return true;
+                                    }
+                                }
+                            }
+                            else {
+                                arr.push(member);
+                                if (withscores) {
+                                    arr.push(score);
+                                }
+                            }
+                        }
+                        offset += 1;
+                        return false;
+                    });
+                    if (limitCount !== -1 &amp;&amp; arr.length === limitCount) {
+                        return true;
+                    }
+                    return false;
+                });
+                return cb(callback)(null, arr);
+            })
+            .thennx(function () { return cb(callback)(null, []); })
+            .end();
+    };
+
+    redismock.zrank = function (key, member, callback) {
+        return this
+            .ifType(key, &#039;zset&#039;, callback)
+            .thenex(function () {
+                var idx = 0;
+                var found = Object
+                    .keys(cache[zsets][key])
+                    .map(function (score) {
+                        return parseFloat(score);
+                    })
+                    .sort()
+                    .some(function (score) {
+                        if (cache[zsets][key][score].indexOf(member) !== -1) {
+                            return true;
+                        }
+                        idx += 1;
+                        return false;
+                    });
+                if (!found) {
+                    return cb(callback)(null, null);
+                }
+                return cb(callback)(null, idx);
+            })
+            .thennx(function () { return cb(callback)(null, null); })
+            .end();
+    };
+
+    redismock.zrem = function (key, member, callback) {
+        var count = 0;
+        var g = gather(this.zrem).apply(this, arguments);
+        callback = g.callback;
+        return this
+            .ifType(key, &#039;zset&#039;, callback)
+            .thenex(function () {
+                g.list.forEach(function (m) {
+                    Object
+                        .keys(cache[zsets][key])
+                        .forEach(function (score) {
+                            var idx = cache[zsets][key][score].indexOf(m);
+                            if (idx !== -1) {
+                                cache[zsets][key][score].splice(idx, 1);
+                                count += 1;
+                            }
+                        });
+                });
+            })
+            .then(function () { return cb(callback)(null, count); })
+            .end();
+    };
 
     redismock.hdel = function (key, field, callback) {
         var count = 0;
