@@ -56,8 +56,11 @@
         };
     };
 
-    var gather = function (f) {
+    var gather = function (f, e) {
         var end = f.length;
+        if (e) {
+            end = e;
+        }
         return function () {
             var idx, len = arguments.length;
             var callback;
@@ -67,7 +70,7 @@
                     if (typeof arguments[idx] === "function") {
                         callback = arguments[idx];
                     }
-                    else if (arguments[idx]) {
+                    else if (arguments[idx] !== null && arguments[idx] !== undefined) {
                         list.push(arguments[idx]);
                     }
                 }
@@ -602,12 +605,13 @@
     };
 
     redismock.zadd = function (key, score, member, callback) {
-        var g = gather(this.zadd).apply(this, arguments);
+        var g = gather(this.zadd, 3).apply(this, arguments);
         callback = g.callback;
         return this
             .ifType(key, 'zset', callback)
             .thennx(function () { cache[zsets][key] = {}; })
             .then(function () {
+                var count = 0;
                 g
                     .list
                     .map(function (elem, index) {
@@ -622,18 +626,143 @@
                     .forEach(function (sm) {
                         var score = sm[0];
                         var m = sm[1];
+                        var noop = false;
                         if (!(score in cache[zsets][key])) {
                             cache[zsets][key][score] = [];
                         }
-                        cache[zsets][key][score].push(m);
+                        Object
+                            .keys(cache[zsets][key])
+                            .map(function (score) {
+                                return [parseInt(score, 10), cache[zsets][key][score].indexOf(m)];
+                            })
+                            .filter(function (si) {
+                                return si[1] !== -1;
+                            })
+                            .forEach(function (si) {
+                                if (si[0] !== score) {
+                                    cache[zsets][key][si[0]].splice(si[1], 1);
+                                }
+                                else {
+                                    noop = true;
+                                }
+                            });
+                        if (!noop) {
+                            cache[zsets][key][score].push(m);
+                            count += 1;
+                        }
                     });
-                return cb(callback)(null, 1);
+                return cb(callback)(null, count);
             })
+            .end();
+    };
+
+    redismock.zcard = function (key, callback) {
+        return this
+            .ifType(key, 'zset', callback)
+            .thenex(function () { 
+                var count = Object.keys(cache[zsets][key]).reduce(function (cnt, score) {
+                    return cnt + cache[zsets][key][score].length;
+                }, 0);
+                return cb(callback)(null, count); 
+            })
+            .thennx(function () { return cb(callback)(null, 0); })
+            .end();
+    };
+
+    redismock.zcount = function (key, min, max, callback) {
+        return this
+            .ifType(key, 'zset', callback)
+            .thenex(function () {
+                var count = Object
+                    .keys(cache[zsets][key])
+                    .map(function (score) {
+                        return parseInt(score, 10);
+                    })
+                    .filter(function (score) {
+                        return min <= score && score <= max;
+                    })
+                    .reduce(function (cnt, score) {
+                        return cnt + cache[zsets][key][score].length;
+                    }, 0);
+                return cb(callback)(null, count);
+            })
+            .thennx(function () { return cb(callback)(null, 0); })
+            .end();
+    };
+
+    redismock.zrange = function (key, start, stop, callback) {
+        var withscores = false;
+        if (typeof callback !== "function" && callback === "withscores") {
+            withscores = true;
+            callback = arguments[4];
+        }
+        if (start < 0) {
+            start = this.zcard(key) + start;
+        }
+        if (stop < 0) {
+            stop = this.zcard(key) + stop;
+        }
+        return this
+            .ifType(key, 'zset', callback)
+            .thenex(function () {
+                var index = 0;
+                var arr = [];
+                Object
+                    .keys(cache[zsets][key])
+                    .map(function (score) {
+                        return parseInt(score, 10);
+                    })
+                    .sort()
+                    .some(function (score) {
+                        cache[zsets][key][score].forEach(function (member) {
+                            if (start <= index && index <= stop) {
+                                arr.push(member);
+                                if (withscores) {
+                                    arr.push(score);
+                                }
+                            }
+                            index += 1;
+                        });
+                        if (index > stop) {
+                            return true;
+                        }
+                        return false;
+                    });
+                return cb(callback)(null, arr);
+            })
+            .thennx(function () { return cb(callback)(null, []); })
             .end();
     };
 
     /*redismock.zrangebyscore = function (key, min, max, callback) {
     };*/
+
+    redismock.zrank = function (key, member, callback) {
+        return this
+            .ifType(key, 'zset', callback)
+            .thenex(function () {
+                var idx = 0;
+                var found = Object
+                    .keys(cache[zsets][key])
+                    .map(function (score) {
+                        return parseInt(score, 10);
+                    })
+                    .sort()
+                    .some(function (score) {
+                        if (cache[zsets][key][score].indexOf(member) !== -1) {
+                            return true;
+                        }
+                        idx += 1;
+                        return false;
+                    });
+                if (!found) {
+                    return cb(callback)(null, null);
+                }
+                return cb(callback)(null, idx);
+            })
+            .thennx(function () { return cb(callback)(null, null); })
+            .end();
+    };
 
     redismock.hdel = function (key, field, callback) {
         var count = 0;
