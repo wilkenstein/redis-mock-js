@@ -866,6 +866,9 @@
                             }
                         });
                 });
+                if (Object.keys(cache[zsets][key]).length === 0) {
+                    delete cache[zsets][key];
+                }
             })
             .then(function () { return cb(callback)(null, count); })
             .end();
@@ -884,6 +887,9 @@
                         count += 1;
                     }
                 });
+                if (Object.keys(cache[hashes][key]).length === 0) {
+                    delete cache[hashes][key];
+                }
             })
             .then(function () { return cb(callback)(null, count); })
             .end();
@@ -902,6 +908,101 @@
             .ifType(key, 'hash', callback)
             .thenex(function () { return cb(callback)(null, cache[hashes][key][field]); })
             .thennx(function () { return cb(callback)(null, null); })
+            .end();
+    };
+
+    redismock.hgetall = function (key, callback) {
+        return this
+            .ifType(key, 'hash', callback)
+            .thenex(function () {
+                return Object
+                    .keys(cache[hashes][key])
+                    .map(function (key) {
+                        return [key, cache[hashes][key]];
+                    })
+                    .reduce(function (prev, fv) {
+                        return prev.concat(fv);
+                    }, []);
+            })
+            .thennx(function () { return cb(callback)(null, []); })
+            .end();
+    };
+
+    redismock.hkeys = function (key, callback) {
+        return this
+            .ifType(key, 'hash', callback)
+            .thenex(function () { return cb(callback)(null, Object.keys(cache[hashes][key])); })
+            .thennx(function () { return cb(callback)(null, []); })
+            .end();
+    };
+
+    redismock.hlen = function (key, callback) {
+        var r = this.hkeys(key);
+        if (r instanceof Error) {
+            return cb(callback)(r);
+        }
+        return cb(callback)(null, r.length);
+    };
+
+    redismock.hset = function (key, field, value, callback) {
+        var ret;
+        return this
+            .ifType(key, 'hash', callback)
+            .thenex(function () {
+                if (field in cache[hashes][key]) {
+                    ret = 0;
+                }
+                else {
+                    ret = 1;
+                }
+            })
+            .thennx(function () {
+                ret = 1;
+                cache[hashes][key] = {}; 
+            })
+            .then(function () { 
+                cache[hashes][key][field] = value;
+                return cb(callback)(null, ret); 
+            })
+            .end();
+    };
+
+    redismock.hsetnx = function (key, field, value, callback) {
+        var ret;
+        return this
+            .ifType(key, 'hash', callback)
+            .thenex(function () {
+                if (field in cache[hashes][key]) {
+                    ret = 0;
+                    return;
+                }
+                ret = 1;
+            })
+            .thennx(function () {
+                ret = 1;
+                cache[hashes][key] = {};
+            })
+            .then(function () { 
+                if (ret === 1) {
+                    cache[hashes][key][field] = value;
+                }
+                return cb(callback)(null, ret); 
+            })
+            .end();
+    };
+
+    redismock.hvals = function (key, callback) {
+        var vals = [];
+        return this
+            .ifType(key, 'hash', callback)
+            .thenex(function () {
+                vals = Object
+                    .keys(cache[hashes][key])
+                    .map(function (field) {
+                        return cache[hashes][key][field];
+                    });
+            })
+            .then(function () { return cb(callback)(null, vals); })
             .end();
     };
 
