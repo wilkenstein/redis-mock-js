@@ -83,7 +83,7 @@ function setGetDelAsync(callback) {
 setGetDelAsync(function (err) { if (err) throw err; });
     
 // Promise style with q.
-function setGetDel() {
+function setGetDelQ() {
     return Q
         .nfcall(redisClient.set, 'key', 'value')
         .then(function (reply) {
@@ -103,7 +103,7 @@ function setGetDel() {
             throw err;
         });
 }
-setGetDel()
+setGetDelQ()
     .fail(function (err) { throw err; })
     .done();
 ````
@@ -126,7 +126,9 @@ setGetDel()
   - HyperLogLog support.
 
 ## Versions
-
+* 0.0.4
+  - Enhanced hash support.
+  - Unit tests for hash commands.
 * 0.0.3
   - Set, sorted set, and hash support.
   - Unit tests for implemented list, set, and sorted set commands.
