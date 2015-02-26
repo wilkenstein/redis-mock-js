@@ -23,7 +23,7 @@ TODO: Add minified javascript files. Provide github link? Or other site?
 The below code demonstrates a toy example of using the client in
 node.js/io.js. The toy example sets a key, gets it, then deletes it.
 
-````
+````javascript
 var redisClient = require('redis-js');
 var async = require('async');
 var Q = require('q');

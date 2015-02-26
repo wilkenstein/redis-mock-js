@@ -45,11 +45,11 @@
   <div class="row">
     <div class="col-md-6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">72.78</p>
+      <p class="stat">73.05</p>
     </div>
     <div class="col-md-6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">1176</p>
+      <p class="stat">1221</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="col-md-6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">207.27</p>
+      <p class="stat">214.37</p>
     </div>
     <div class="col-md-6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">14.30</p>
+      <p class="stat">14.91</p>
     </div>
   </div>
 </div>
@@ -1007,14 +1007,15 @@
         return this
             .ifType(key, &#039;hash&#039;, callback)
             .thenex(function () {
-                return Object
+                var arr = Object
                     .keys(cache[hashes][key])
-                    .map(function (key) {
-                        return [key, cache[hashes][key]];
+                    .map(function (field) {
+                        return [field, cache[hashes][key][field]];
                     })
                     .reduce(function (prev, fv) {
                         return prev.concat(fv);
                     }, []);
+                return cb(callback)(null, arr);
             })
             .thennx(function () { return cb(callback)(null, []); })
             .end();
@@ -1028,12 +1029,56 @@
             .end();
     };
 
+    redismock.hmset = function (key, field, value, callback) {
+        var g = gather(this.hmset, 3).apply(this, arguments);
+        callback = g.callback;
+        return this
+            .ifType(key, &#039;hash&#039;, callback)
+            .thennx(function () { cache[hashes][key] = {}; })
+            .then(function () {
+                var that = this;
+                g
+                    .list
+                    .map(function (fv, index) {
+                        if (index % 2 === 0) {
+                            return [fv, g.list[index + 1]];
+                        }
+                        return null;
+                    })
+                    .filter(function (fv) {
+                        return fv !== null;
+                    })
+                    .forEach(function (fv) {
+                        that.hset(key, fv[0], fv[1]);
+                    });
+                return cb(callback)(null, &#039;OK&#039;);
+            })
+            .end();
+    };
+
     redismock.hlen = function (key, callback) {
         var r = this.hkeys(key);
         if (r instanceof Error) {
             return cb(callback)(r);
         }
         return cb(callback)(null, r.length);
+    };
+
+    redismock.hmget = function (key, field, callback) {
+        var g = gather(this.hmget).apply(this, arguments);
+        callback = g.callback;
+        return this
+            .ifType(key, &#039;hash&#039;, callback)
+            .thenex(function () {
+                var arr = g
+                    .list
+                    .map(function (f) {
+                        return cache[hashes][key][f];
+                    });
+                return cb(callback)(null, arr);
+            })
+            .thennx(function () { return cb(callback)(null, []); })
+            .end();
     };
 
     redismock.hset = function (key, field, value, callback) {
