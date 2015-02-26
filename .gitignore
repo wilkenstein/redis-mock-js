@@ -1,2 +1,5 @@
 coverage/
 node_modules/
+
+# Emacs auto-generated save files
+*~
