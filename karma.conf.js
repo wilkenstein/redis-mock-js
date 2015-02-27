@@ -21,7 +21,9 @@ module.exports = function(config) {
             'redis-mock.js',
             'test/mocha/redismockHashTest.js',
             'test/mocha/redismockTransactionTest.js',
-            'test/mocha/redismockListTest.js'
+            'test/mocha/redismockListTest.js',
+            'test/mocha/redismockSetTest.js',
+            'test/mocha/redismockSortedSetTest.js'
         ],
 
         client: {
