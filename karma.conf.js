@@ -19,11 +19,7 @@ module.exports = function(config) {
         // list of files / patterns to load in the browser
         files: [
             'redis-mock.js',
-            'test/mocha/redismockHashTest.js',
-            'test/mocha/redismockTransactionTest.js',
-            'test/mocha/redismockListTest.js',
-            'test/mocha/redismockSetTest.js',
-            'test/mocha/redismockSortedSetTest.js'
+            'test/mocha/*.js'
         ],
 
         client: {
