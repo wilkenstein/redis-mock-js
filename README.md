@@ -6,8 +6,8 @@ javascript.
 
 ### npm
 
-````
-npm install redis-js
+````bash
+$ npm install redis-js
 ````
 
 ### Browser
@@ -148,7 +148,7 @@ $ npm run implemented
 $ npm run unimplemented
 ````
 
-Theses two commands will print out all the implemented and unimplemented commands respectively.
+Theses two commands will print out all the implemented and unimplemented commands, respectively.
 
 NOTE: version 0.0.5 will have full support for implemented and unimplemented. Versions <= 0.0.4 do <i>not</i> support these commands and will be deprecated at some point.
 
