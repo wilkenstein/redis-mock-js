@@ -509,69 +509,18 @@
     };
 
     // List Commands
+    // -------------
 
-    redismock.lpush = function (key, element, callback) {
-        var g = gather(this.lpush).apply(this, arguments);
-        callback = g.callback;
-        return this
-            .ifType(key, 'list', callback)
-            .thennx(function () { cache[key] = []; })
-            .then(function () {
-                cache[key] = g.list.concat(cache[key]);
-                return cb(callback)(null, cache[key].length);
-            })
-            .end();
+    redismock.blpop = function (key, timeout, callback) {
+        return cb(callback)(new Error('UNIMPLEMENTED'));
     };
 
-    redismock.lpushx = function (key, element, callback) {
-        return this
-            .ifType(key, 'list', callback)
-            .thenex(function () {
-                cache[key].unshift(element);
-                return cb(callback)(null, cache[key].length);
-            })
-            .thennx(function () { return cb(callback)(null, 0); })
-            .end();
+    redismock.brpop = function (key, timeout, callback) {
+        return cb(callback)(new Error('UNIMPLEMENTED'));
     };
 
-    redismock.rpush = function (key, element, callback) {
-        var g = gather(this.rpush).apply(this, arguments);
-        callback = g.callback;
-        return this
-            .ifType(key, 'list', callback)
-            .thennx(function () { cache[key] = []; })
-            .then(function () {
-                cache[key] = cache[key].concat(g.list);
-                return cb(callback)(null, cache[key].length);
-            })
-            .end();
-    };
-
-    redismock.rpushx = function (key, element, callback) {
-        return this
-            .ifType(key, 'list', callback)
-            .thenex(function () {
-                cache[key].push(element);
-                return cb(callback)(null, cache[key].length);
-            })
-            .thennx(function () { return cb(callback)(null, 0); })
-            .end();
-    };
-
-    redismock.lpop = function (key, callback) {
-        return this
-            .ifType(key, 'list', callback)
-            .thenex(function () { return cb(callback)(null, cache[key].shift()); })
-            .thennx(function () { return cb(callback)(null, null); })
-            .end();
-    };
-
-    redismock.rpop = function (key, callback) {
-        return this
-            .ifType(key, 'list', callback)
-            .thenex(function () { return cb(callback)(null, cache[key].pop()); })
-            .thennx(function () { return cb(callback)(null, null); })
-            .end();
+    redismock.brpoplpush = function (source, destination, timeout, callback) {
+        return cb(callback)(new Error('UNIMPLEMENTED'));
     };
 
     redismock.lindex = function (key, i, callback) {
@@ -587,68 +536,6 @@
                 }
             })
             .then(function () { return cb(callback)(null, elem); })
-            .end();
-    };
-
-    redismock.ltrim = function (key, start, end, callback) {
-        return this
-            .ifType(key, 'list', callback)
-            .thenex(function () {
-                var tmpS, tmpE;
-                if (start > cache[key].length - 1 || start > end) {
-                    cache[key] = [];
-                }
-                else {
-                    if (start < 0 && end < 0) {
-                        tmpE = cache[key].length + end;
-                        tmpS = cache[key].length + start;
-                        if (tmpS < 0) {
-                            tmpS = 0;
-                        }
-                        start = tmpS;
-                        end = tmpE;
-                    }
-                    if (end > cache[key].length - 1) {
-                        end = cache[key].length - 1;
-                    }
-                    cache[key] = cache[key].slice(start, end + 1);
-                }
-            })
-            .then(function () { 
-                if (this.exists(key) && !cache[key].length) {
-                    delete cache[key];
-                }
-                return cb(callback)(null, 'OK');
-            })
-            .end();
-    };
-
-    redismock.lrange = function (key, start, end, callback) {
-        var l = [];
-        return this
-            .ifType(key, 'list', callback)
-            .thenex(function () {
-                var tmpS, tmpE;
-                if (start > cache[key].length - 1) {
-                    l = [];
-                }
-                else {
-                    if (start < 0 && end < 0) {
-                        tmpS = cache[key].length + end;
-                        tmpE = cache[key].length + start;
-                        start = tmpS;
-                        end = tmpE;
-                    }
-                    if (start >= 0 && end < 0) {
-                        end = cache[key].length + end;
-                    }
-                    if (end > cache[key].length - 1) {
-                        end = cache[key].length - 1;
-                    }
-                    l = cache[key].slice(start, end + 1);
-                }
-            })
-            .then(function () { return cb(callback)(null, l); })
             .end();
     };
 
@@ -680,19 +567,65 @@
             .end();
     };
 
-    redismock.rpoplpush = function (source, dest, callback) {
-        var element, reply;
-        element = this.rpop(source);
-        if (element instanceof Error) {
-            return cb(callback)(element);
-        }
-        if (element) {
-            reply = this.lpush(dest, element);
-            if (reply instanceof Error) {
-                return cb(callback)(reply);
-            }
-        }
-        return cb(callback)(null, element);
+    redismock.lpop = function (key, callback) {
+        return this
+            .ifType(key, 'list', callback)
+            .thenex(function () { return cb(callback)(null, cache[key].shift()); })
+            .thennx(function () { return cb(callback)(null, null); })
+            .end();
+    };
+
+    redismock.lpush = function (key, element, callback) {
+        var g = gather(this.lpush).apply(this, arguments);
+        callback = g.callback;
+        return this
+            .ifType(key, 'list', callback)
+            .thennx(function () { cache[key] = []; })
+            .then(function () {
+                cache[key] = g.list.concat(cache[key]);
+                return cb(callback)(null, cache[key].length);
+            })
+            .end();
+    };
+
+    redismock.lpushx = function (key, element, callback) {
+        return this
+            .ifType(key, 'list', callback)
+            .thenex(function () {
+                cache[key].unshift(element);
+                return cb(callback)(null, cache[key].length);
+            })
+            .thennx(function () { return cb(callback)(null, 0); })
+            .end();
+    };
+
+    redismock.lrange = function (key, start, end, callback) {
+        var l = [];
+        return this
+            .ifType(key, 'list', callback)
+            .thenex(function () {
+                var tmpS, tmpE;
+                if (start > cache[key].length - 1) {
+                    l = [];
+                }
+                else {
+                    if (start < 0 && end < 0) {
+                        tmpS = cache[key].length + end;
+                        tmpE = cache[key].length + start;
+                        start = tmpS;
+                        end = tmpE;
+                    }
+                    if (start >= 0 && end < 0) {
+                        end = cache[key].length + end;
+                    }
+                    if (end > cache[key].length - 1) {
+                        end = cache[key].length - 1;
+                    }
+                    l = cache[key].slice(start, end + 1);
+                }
+            })
+            .then(function () { return cb(callback)(null, l); })
+            .end();
     };
 
     redismock.lrem = function (key, count, element, callback) {
@@ -734,6 +667,89 @@
             .end();
     };
 
+    redismock.ltrim = function (key, start, end, callback) {
+        return this
+            .ifType(key, 'list', callback)
+            .thenex(function () {
+                var tmpS, tmpE;
+                if (start > cache[key].length - 1 || start > end) {
+                    cache[key] = [];
+                }
+                else {
+                    if (start < 0 && end < 0) {
+                        tmpE = cache[key].length + end;
+                        tmpS = cache[key].length + start;
+                        if (tmpS < 0) {
+                            tmpS = 0;
+                        }
+                        start = tmpS;
+                        end = tmpE;
+                    }
+                    if (end > cache[key].length - 1) {
+                        end = cache[key].length - 1;
+                    }
+                    cache[key] = cache[key].slice(start, end + 1);
+                }
+            })
+            .then(function () { 
+                if (this.exists(key) && !cache[key].length) {
+                    delete cache[key];
+                }
+                return cb(callback)(null, 'OK');
+            })
+            .end();
+    };
+
+    redismock.rpop = function (key, callback) {
+        return this
+            .ifType(key, 'list', callback)
+            .thenex(function () { return cb(callback)(null, cache[key].pop()); })
+            .thennx(function () { return cb(callback)(null, null); })
+            .end();
+    };
+
+    redismock.rpoplpush = function (source, dest, callback) {
+        var element, reply;
+        element = this.rpop(source);
+        if (element instanceof Error) {
+            return cb(callback)(element);
+        }
+        if (element) {
+            reply = this.lpush(dest, element);
+            if (reply instanceof Error) {
+                return cb(callback)(reply);
+            }
+        }
+        return cb(callback)(null, element);
+    };
+
+    redismock.rpush = function (key, element, callback) {
+        var g = gather(this.rpush).apply(this, arguments);
+        callback = g.callback;
+        return this
+            .ifType(key, 'list', callback)
+            .thennx(function () { cache[key] = []; })
+            .then(function () {
+                cache[key] = cache[key].concat(g.list);
+                return cb(callback)(null, cache[key].length);
+            })
+            .end();
+    };
+
+    redismock.rpushx = function (key, element, callback) {
+        return this
+            .ifType(key, 'list', callback)
+            .thenex(function () {
+                cache[key].push(element);
+                return cb(callback)(null, cache[key].length);
+            })
+            .thennx(function () { return cb(callback)(null, 0); })
+            .end();
+    };
+
+    // Set Commands
+    // ------------
+
     redismock.sadd = function (key, member, callback) {
         var g = gather(this.sadd).apply(this, arguments);
         var count = 0;
@@ -765,6 +781,22 @@
             .end();
     };
 
+    redismock.sdiff = function (key, callback) {
+        return cb(callback)(new Error('UNIMPLEMENTED'));
+    };
+    
+    redismock.sdiffstore = function (destination, key, callback) {
+        return cb(callback)(new Error('UNIMPLEMENTED'));
+    };
+
+    redismock.sinter = function (key, callback) {
+        return cb(callback)(new Error('UNIMPLEMENTED'));
+    };
+
+    redismock.sinterstore = function (destination, key, callback) {
+        return cb(callback)(new Error('UNIMPLEMENTED'));
+    };
+
     redismock.sismember = function (key, member, callback) {
         return this
             .ifType(key, 'set', callback)
@@ -779,6 +811,19 @@
             .thenex(function () { return cb(callback)(null, Object.keys(cache[sets][key])); })
             .thennx(function () { return cb(callback)(null, []); })
             .end();
+    };
+
+    redismock.smove = function (source, dest, member, callback) {
+        var r, e;
+        r = redismock.srem(source, member);
+        if (r instanceof Error) {
+            return cb(callback)(r);
+        }
+        e = redismock.sadd(dest, member);
+        if (e instanceof Error) {
+            return cb(callback)(e);
+        }
+        return cb(callback)(null, r);
     };
 
     redismock.spop = function (key, callback) {
@@ -847,18 +892,20 @@
             .end();
     };
 
-    redismock.smove = function (source, dest, member, callback) {
-        var r, e;
-        r = redismock.srem(source, member);
-        if (r instanceof Error) {
-            return cb(callback)(r);
-        }
-        e = redismock.sadd(dest, member);
-        if (e instanceof Error) {
-            return cb(callback)(e);
-        }
-        return cb(callback)(null, r);
+    redismock.sunion = function (key, callback) {
+        return cb(callback)(new Error('UNIMPLEMENTED'));
     };
+
+    redismock.sunionstore = function (destination, key, callback) {
+        return cb(callback)(new Error('UNIMPLEMENTED'));
+    };
+
+    redismock.sscan = function (key, cursor, callback) {
+        return cb(callback)(new Error('UNIMPLEMENTED'));
+    };
+
+    // Sorted Set Commands
+    // -------------------
 
     redismock.zadd = function (key, score, member, callback) {
         var g = gather(this.zadd, 3).apply(this, arguments);
