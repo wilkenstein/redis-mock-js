@@ -1,0 +1,27 @@
+(function() {
+    var redismock = typeof require === 'function' ? require('../../redis-mock.js') : window.redismock;
+    if (typeof chai === 'undefined') {
+        var chai = typeof require === 'function' ? require('chai') : window.chai;
+    }
+    chai.config.includeStack = true;
+    var expect = chai.expect;
+
+    describe('args check', function () {
+        it('returns an error if we do not have the right number of arguments', function () {
+            for (var key in redismock) {
+                if (typeof redismock[key] === "function") {
+                    err = redismock[key]();
+                    if (key === 'randomkey' || key === 'multi' || key === 'info' || key === 'warnings') {
+                        // 0 args, so skip, or intentionally skip.
+                        continue;
+                    }
+                    expect(err).to.be.an.instanceof(Error);
+                    expect(err.message.indexOf('ERR')).to.be.above(-1);
+                    expect(err.message.indexOf(key)).to.be.above(-1);
+                    expect(err.message.indexOf('wrong number of arguments')).to.be.above(-1);
+                }
+            }
+        });
+    });
+
+}).call(this);

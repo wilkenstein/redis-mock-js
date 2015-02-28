@@ -38,6 +38,8 @@
         "test-ie": "./node_modules/karma/bin/karma start --browsers IE",
         "test-safari": "./node_modules/karma/bin/karma start --browsers Safari",
         "test-opera": "./node_modules/karma/bin/karma start --browsers Opera",
+        "implemented": "./node_modules/.bin/_mocha -R spec -t 60s test/implemented.js",
+        "unimplemented": "./node_modules/.bin/_mocha -R spec -t 60s test/unimplemented.js",
         "build-min": "node_modules/.bin/uglifyjs redis-mock.js --source-map redis-mock-min.map -o redis-mock-min.js",
         "doc": "docco redis-mock.js"
     },

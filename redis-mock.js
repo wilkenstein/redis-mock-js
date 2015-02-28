@@ -24,7 +24,11 @@
         root.redismock = redismock;
     }
 
-    if (typeof setImmediate === 'undefined') {
+    // We use setImmediate for callback-style returns,
+    // but it is non-standard. To standardize, convert
+    // setImmediate to its equivalent (mostly) counterpart
+    // in setTimeout with timeout = 0 if it is not available.
+    if (typeof setImmediate === 'undefined' || typeof setImmediate !== 'function') {
         var setImmediate = function (f) {
             setTimeout(f, 0);
         };
@@ -40,6 +44,10 @@
     cache[sets] = {};
     cache[zsets] = {};
     cache[hashes] = {};
+
+    ////////////////////
+    // Utils
+    ////////////////////
 
     var cb = function (callback, context) {
         return function () {
@@ -124,6 +132,290 @@
         };
     };
 
+    ////////////////////
+    // Keys Commands
+    ////////////////////
+
+    redismock.del = function (key, callback) {
+        var that = this;
+        var count = 0;
+        var g = gather(this.del).apply(this, arguments);
+        callback = g.callback;
+        g.list.forEach(function (key) {
+            if (that.exists(key)) {
+                if (key in cache) {
+                    cache[key] = undefined;
+                }
+                else if (key in cache[sets]) {
+                    cache[sets][key] = undefined;
+                }
+                else if (key in cache[zsets]) {
+                    cache[zsets][key] = undefined;
+                }
+                else if (key in cache[hashes]) {
+                    cache[hashes][key] = undefined;
+                }
+                count += 1;
+            }
+        });
+        return cb(callback)(null, count);
+    };
+
+    redismock.dump = function (key, callback) {
+        return cb(callback)(new Error("UNIMPLEMENTED"));
+    };
+
+    redismock.exists = function (key, callback) {
+        return cb(callback)(null, (cache[key] || cache[sets][key] || cache[zsets][key] || cache[hashes][key]) ? 1 : 0);
+    };
+
+    redismock.expire = function (key, seconds, callback) {
+        return this.pexpire(key, seconds*1000, callback);
+    };
+
+    redismock.expireat = function (key, timestamp, callback) {
+        var now = new Date();
+        return this.pexpire(key, timestamp*1000 - now.getTime(), callback);
+    };
+
+    redismock.keys = function (pattern, callback) {
+        return cb(callback)(new Error("UNIMPLEMENTED"));
+    };
+
+    redismock.migrate = function (host, port, key, destination_db, timeout, callback) {
+        return cb(callback)(new Error("UNIMPLEMENTED"));
+    };
+
+    redismock.move = function (key, db, callback) {
+        return cb(callback)(new Error("UNIMPLEMENTED"));
+    };
+
+    redismock.object = function (subcommand, callback) {
+        return cb(callback)(new Error("UNIMPLEMENTED"));
+    };
+
+    redismock.persist = function (key, callback) {
+        if (this.exists(key) && key in timeouts) {
+            clearTimeout(timeouts[key]);
+            return cb(callback)(null, 1);
+        }
+        return cb(callback)(null, 0);
+    };
+
+    redismock.pexpire = function (key, milliseconds, callback) {
+        var that = this;
+        if (this.exists(key)) {
+            if (key in timeouts) {
+                clearTimeout(timeouts[key]);
+            }
+            if (milliseconds <= 0) {
+                this.del(key);
+            }
+            else {
+                timeouts[key] = setTimeout(function () {
+                    that.del(key);
+                }, milliseconds);
+            }
+            return cb(callback)(null, 1);
+        }
+        return cb(callback)(null, 0);
+    };
+
+    redismock.pexpireat = function (key, timestamp, callback) {
+        var now = new Date();
+        return this.pexpire(key, timestamp - now.getTime(), callback);
+    };
+
+    redismock.pttl = function (key, callback) {
+        return cb(callback)(new Error("UNIMPLEMENTED"));
+    };
+
+    redismock.randomkey = function (callback) {
+        // Return the Nth key with probability 1/(N + 1).
+        var n = 2;
+        for (var key in cache) {
+            if (cache.hasOwnProperty(key)) {
+                if (Math.random() < 1/n) {
+                    if (key === sets) {
+                        for (var setkey in cache[sets]) {
+                            return cb(callback)(null, setkey);
+                        }
+                        return cb(callback)(null, null);
+                    }
+                    if (key === zsets) {
+                        for (var zsetkey in cache[zsets]) {
+                            return cb(callback)(null, zsetkey);
+                        }
+                        return cb(callback)(null, null);
+                    }
+                    if (key === hashes) {
+                        for (var hashkey in cache[zsets]) {
+                            console.log(hashkey);
+                            return cb(callback)(null, hashkey);
+                        }
+                        return cb(callback)(null, null);
+                    }
+                    return cb(callback)(null, key);
+                }
+                n += 1;
+            }
+        }
+        return cb(callback)(null, null);
+    };
+
+    redismock.rename = function (key, newkey, callback) {
+        var val, type;
+        if (!this.exists(key)) {
+            return cb(callback)(new Error('ERR no such key'));
+        }
+        if (key === newkey) {
+            return cb(callback)(null, 'OK');
+        }
+        type = this.type(key);
+        if (type === 'string' || type === 'list') {
+            val = cache[key];
+        }
+        else if (type === 'set') {
+            val = cache[sets][key];
+        }
+        else if (type === 'zset') {
+            val = cache[zsets][key];
+        }
+        else if (type === 'hash') {
+            val = cache[hashes][key];
+        }
+        // else can't occur yet...
+        cache[newkey] = val;
+        this.del(key);
+        return cb(callback)(null, 'OK');
+    };
+    
+    redismock.renamenx = function (key, newkey, callback) {
+        if (this.exists(newkey)) {
+            return cb(callback)(null, 0);
+        }
+        return this.rename(key, newkey, callback);
+    };
+
+    redismock.restore = function (key, ttl, serialized_value, callback) {
+        return cb(callback)(new Error('UNIMPLEMENTED'));
+    };
+
+    redismock.sort = function (key, callback) {
+        return cb(callback)(new Error('UNIMPLEMENTED'));
+    };
+
+    redismock.ttl = function (key, callback) {
+        return cb(callback)(new Error('UNIMPLEMENTED'));
+    };
+
+    redismock.type = function (key, callback) {
+        if (this.exists(key)) {
+            var type = typeof cache[key];
+            if (type === 'object') {
+                if (cache[key] instanceof Array) {
+                    type = 'list';
+                }
+            }
+            else if (type === 'undefined') {
+                if (key in cache[sets]) {
+                    type = 'set';
+                }
+                else if (key in cache[zsets]) {
+                    type = 'zset';
+                }
+                else if (key in cache[hashes]) {
+                    type = 'hash';
+                }
+            }
+            return cb(callback)(null, type);
+        }
+        return cb(callback)(null, 'none');
+    };
+
+    redismock.scan = function (cursor, callback) {
+        return cb(callback)(new Error('UNIMPLEMENTED'));
+    };
+
+    ////////////////////
+    // String Commands
+    ////////////////////
+
+    redismock.append = function (key, value, callback) {
+        return cb(callback)(new Error('UNIMPLEMENTED'));
+    };
+
+    redismock.bitcount = function (key, callback) {
+        return cb(callback)(new Error('UNIMPLEMENTED'));
+    };
+
+    redismock.bitop = function (operation, destkey, key, callback) {
+        return cb(callback)(new Error('UNIMPLEMENTED'));
+    };
+
+    redismock.bitops = function (key, bit, callback) {
+        return cb(callback)(new Error('UNIMPLEMENTED'));
+    };
+
+    redismock.decr = function (key, callback) {
+        return cb(callback)(new Error('UNIMPLEMENTED'));
+    };
+
+    redismock.decrby = function (key, decrement, callback) {
+        return cb(callback)(new Error('UNIMPLEMENTED'));
+    };
+
+    redismock.get = function (key, callback) {
+        if (this.type(key) === 'string') {
+            return cb(callback)(null, cache[key]);
+        }
+        return cb(callback)(null, null);
+    };
+
+    redismock.getbit = function (key, offset, callback) {
+        return cb(callback)(new Error('UNIMPLEMENTED'));
+    };
+
+    redismock.getrange = function (key, start, end, callback) {
+        return cb(callback)(new Error('UNIMPLEMENTED'));
+    };
+
+    redismock.getset = function (key, value, callback) {
+        var prev = this.get(key);
+        this.set(key, value);
+        return cb(callback)(null, prev);
+    };
+
+    redismock.incr = function (key, callback) {
+        return cb(callback)(new Error('UNIMPLEMENTED'));
+    };
+
+    redismock.incrby = function (key, increment, callback) {
+        return cb(callback)(new Error('UNIMPLEMENTED'));
+    };
+
+    redismock.incrbyfloat = function (key, increment, callback) {
+        return cb(callback)(new Error('UNIMPLEMENTED'));
+    };
+
+    redismock.mget = function (key, callback) {
+        return cb(callback)(new Error('UNIMPLEMENTED'));
+    };
+
+    redismock.mset = function (key, value, callback) {
+        return cb(callback)(new Error('UNIMPLEMENTED'));
+    };
+
+    redismock.msetnx = function (key, value, callback) {
+        return cb(callback)(new Error('UNIMPLEMENTED'));
+    };
+
+    redismock.psetex = function (key, milliseconds, value, callback) {
+        this.set(key, value);
+        this.pexpire(key, milliseconds);
+        return cb(callback)(null, 'OK');
+    };
+
     redismock.set = function (key, value, callback) {
         var nx = false, xx = false, ex = -1, px = -1;
         var g = gather(this.set).apply(this, arguments);
@@ -152,7 +444,7 @@
                 return cb(callback)(null, null);
             }
         }
-        cache[key] = value.toString();
+        cache[key] = value ? value.toString() : '';
         if (px !== -1) {
             redismock.pexpire(key, px);
         }
@@ -162,51 +454,8 @@
         return cb(callback)(null, 'OK');
     };
 
-    redismock.get = function (key, callback) {
-        if (this.type(key) === 'string') {
-            return cb(callback)(null, cache[key]);
-        }
-        return cb(callback)(null, null);
-    };
-
-    redismock.getset = function (key, value, callback) {
-        var prev = this.get(key);
-        this.set(key, value);
-        return cb(callback)(null, prev);
-    };
-
-    redismock.expire = function (key, seconds, callback) {
-        return this.pexpire(key, seconds*1000, callback);
-    };
-
-    redismock.pexpire = function (key, milliseconds, callback) {
-        if (this.exists(key)) {
-            if (key in timeouts) {
-                clearTimeout(timeouts[key]);
-            }
-            timeouts[key] = setTimeout(function () {
-                if (key in cache) {
-                    delete cache[key];
-                }
-                else if (key in cache[sets]) {
-                    delete cache[sets][key];
-                }
-                else if (key in cache[zsets]) {
-                    delete cache[zsets][key];
-                }
-                else if (key in cache[hashes]) {
-                    delete cache[hashes][key];
-                }
-            }, milliseconds);
-            return cb(callback)(null, 1);
-        }
-        return cb(callback)(null, 0);
-    };
-
-    redismock.psetex = function (key, milliseconds, value, callback) {
-        this.set(key, value);
-        this.pexpire(key, milliseconds);
-        return cb(callback)(null, 'OK');
+    redismock.setbit = function (key, offset, value, callback) {
+        return cb(callback)(new Error('UNIMPLEMENTED'));
     };
 
     redismock.setex = function (key, seconds, value, callback) {
@@ -222,6 +471,10 @@
         }
         return cb(callback)(null, 0);
     };
+    
+    redismock.setrange = function (key, offset, value, callback) {
+        return cb(callback)(new Error('UNIMPLEMENTED'));
+    };
 
     redismock.strlen = function (key, callback) {
         if (!this.exists(key)) {
@@ -234,34 +487,9 @@
             .end();
     };
 
-    redismock.exists = function (key, callback) {
-        return cb(callback)(null, key in cache || key in cache[sets] || key in cache[zsets] || key in cache[hashes] ? 1 : 0);
-    };
-
-    redismock.del = function (key, callback) {
-        var that = this;
-        var count = 0;
-        var g = gather(this.del).apply(this, arguments);
-        callback = g.callback;
-        g.list.forEach(function (key) {
-            if (that.exists(key)) {
-                if (key in cache) {
-                    delete cache[key];
-                }
-                else if (key in cache[sets]) {
-                    delete cache[sets][key];
-                }
-                else if (key in cache[zsets]) {
-                    delete cache[zsets][key];
-                }
-                else if (key in cache[hashes]) {
-                    delete cache[hashes][key];
-                }
-                count += 1;
-            }
-        });
-        return cb(callback)(null, count);
-    };
+    ////////////////////
+    // List Commands
+    ////////////////////
 
     redismock.lpush = function (key, element, callback) {
         var g = gather(this.lpush).apply(this, arguments);
@@ -496,8 +724,12 @@
             .thennx(function () { cache[sets][key] = {}; })
             .then(function () {
                 g.list.forEach(function (m) {
-                    if (!(m.toString() in cache[sets][key])) {
-                        cache[sets][key][m.toString()] = m;
+                    m = m ? m.toString() : '';
+                    if (m.length === 0) {
+                        return;
+                    }
+                    if (!(m in cache[sets][key])) {
+                        cache[sets][key][m] = m;
                         count += 1;
                     }
                 });
@@ -543,10 +775,15 @@
         return cb(callback)(null, rando);
     };
 
-    redismock.srandmember = function (key, count, callback) {
-        if (typeof count === 'function') {
-            callback = count;
-            count = null;
+    redismock.srandmember = function (key, callback) {
+        var count;
+        if (arguments.length === 2 && typeof callback !== "function") {
+            count = callback;
+            callback = null;
+        }
+        if (arguments.length === 3) {
+            count = callback;
+            callback = arguments[2];
         }
         return this
             .ifType(key, 'set', callback)
@@ -577,7 +814,7 @@
             .ifType(key, 'set', callback)
             .thenex(function () {
                 g.list.forEach(function (m) {
-                    var k = m.toString();
+                    var k = m ? m.toString() : '';
                     if (k in cache[sets][key]) {
                         delete cache[sets][key][k];
                         count += 1;
@@ -1072,7 +1309,7 @@
         });
     };
 
-    redismock.unsubscribe = function (channel) {
+    redismock.unsubscribe = function (channel, callback) {
         var idx, len = arguments.length;
         var channels = [channel];
         if (!channel) {
@@ -1090,19 +1327,21 @@
                 }
             });
         }
+        return cb(callback)(null, 'OK');
     };
 
-    redismock.publish = function (channel, message) {
+    redismock.publish = function (channel, message, callback) {
         if (channel in mySubscriptions) {
-            mySubscriptions[channel].forEach(function (callback) {
-                cb(callback)(channel, message);
+            mySubscriptions[channel].forEach(function (caller) {
+                cb(caller)(channel, message);
             });
         }
+        return cb(callback)(null, 'OK');
     };
 
-    redismock.watch = function (key) {
+    redismock.watch = function (key, callback) {
         watchers[key] = false;
-        return this;
+        return cb(callback)(null, 'OK');
     };
 
     redismock.multi = function () {
@@ -1147,42 +1386,10 @@
         return rc;
     };
 
-    redismock.type = function (key, callback) {
-        if (this.exists(key)) {
-            var type = typeof cache[key];
-            if (type === 'object') {
-                if (cache[key] instanceof Array) {
-                    type = 'list';
-                }
-            }
-            else if (type === 'undefined') {
-                if (key in cache[sets]) {
-                    type = 'set';
-                }
-                else if (key in cache[zsets]) {
-                    type = 'zset';
-                }
-                else if (key in cache[hashes]) {
-                    type = 'hash';
-                }
-            }
-            return cb(callback)(null, type);
-        }
-        return cb(callback)(null, 'none');
-    };
-
     redismock.info = function (callback) {
-        // TODO
-        return cb(callback)(null, '');
+        return cb(callback)(new Error('UNIMPLEMENTED'));
     };
     
-    redismock.dump = function (logger) {
-        if (!logger) {
-            logger = console;
-        }
-        logger.log(cache);
-    };
-
     redismock.warnings = function (logger) {
         if (!logger) {
             logger = console;
@@ -1206,11 +1413,25 @@
 
     var modifiers = ['del', 'set', 'lpush', 'rpush', 'lpop', 'rpop', 'ltrim', 'sadd', 'srem', 'zadd', 'zrem']; // TODO: Add the rest.
     var capture = {};
+    var fkeys = [];
     for (var key in redismock) {
         if (typeof redismock[key] === "function") {
+            fkeys.push(key);
             capture[key] = redismock[key];
         }
     }
+    // Have each function check its formal parameter list against its argument length
+    // and return an error if there are not enough arguments;
+    fkeys.forEach(function (key) {
+        redismock[key] = function () {
+            if (arguments.length < capture[key].length - 1) {
+                return cb(arguments[arguments.length - 1])(new Error('ERR wrong number of arguments for \'' + key + '\' command'));
+            }
+            return capture[key].apply(capture, arguments);
+        };
+    });
+    // For each function that modifies the database, splice in the watchers to get
+    // the modification and potentially not execute a multi.
     modifiers.forEach(function (modifier) {
         var mod = redismock[modifier];
         redismock[modifier] = function () {

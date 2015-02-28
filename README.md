@@ -108,6 +108,38 @@ setGetDelQ()
     .done();
 ````
 
+## Testing
+
+````
+npm test
+````
+
+````
+npm run test-phantomjs
+npm run test-firefox
+npm run test-chrome
+npm run test-safari
+npm run test-opera
+npm run test-ie
+````
+
+## Support Commands
+
+The goal is to have one-to-one feature parity with all redis commands, so that this implementation can simply be dropped into an existing redis-backed codebase. Redis has a lot of commands! Some of them are easy, and some are quite complex.
+
+Version 0.1.0 should have support for almost all redis commands, minus the hyperloglog commands and the key-movement commands, such as migrate.
+
+To find out what commands a particular version of redis-js supports, run the following commands:
+
+````
+npm run implemented
+npm run unimplemented
+````
+
+Theses two commands will print out all the implemented and unimplemented commands respectively.
+
+NOTE: version 0.0.5 will have full support for implemented and unimplemented. Versions <= 0.0.4 do <i>not</i> support these commands and will be deprecated at some point.
+
 ## Roadmap
 
 * 0.1.0

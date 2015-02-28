@@ -3,6 +3,7 @@
     if (typeof chai === 'undefined') {
         var chai = typeof require === 'function' ? require('chai') : window.chai;
     }
+    chai.config.includeStack = true;
     var expect = chai.expect;
 
     function randkey(prefix) {

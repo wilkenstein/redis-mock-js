@@ -3,6 +3,7 @@
     if (typeof chai === 'undefined') {
         var chai = typeof require === 'function' ? require('chai') : window.chai;
     }
+    chai.config.includeStack = true;
     var expect = chai.expect;
 
     function randkey(prefix) {
@@ -38,8 +39,8 @@
         it('should fail if a key in a multi command is being watched and changes', function (done) {
             var k = randkey();
             var v1 = 'v1', v2 = 'v2', v3 = 'v3';
+            expect(redismock.watch(k)).to.equal('OK');
             var multi = redismock
-                .watch(k)
                 .multi()
                 .lpush(k, v1)
                 .rpush(k, v2)
