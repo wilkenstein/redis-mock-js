@@ -3,15 +3,18 @@
 
 (function () {
 
+    // Baseline setup
+    // --------------
+
     "use strict";
 
     // Establish the root object, `window` in the browser, or `exports` on the server.
     var root = this;
 
-    // Create a safe reference to the mock object for use below.
+    // Create the mock object.
     var redismock = {};
 
-    // Export the mock object for **Node.js**, with
+    // Export the mock object for **node.js/io.js**, with
     // backwards-compatibility for the old `require()` API. If we're in
     // the browser, add `redismock` as a global object.
     if (typeof exports !== 'undefined') {
@@ -26,14 +29,15 @@
 
     // We use setImmediate for callback-style returns,
     // but it is non-standard. To standardize, convert
-    // setImmediate to its equivalent (mostly) counterpart
-    // in setTimeout with timeout = 0 if it is not available.
+    // setImmediate to its equivalent (mostly) counterpart --
+    // setTimeout(f, 0) -- if it is not available.
     if (typeof setImmediate === 'undefined' || typeof setImmediate !== 'function') {
         var setImmediate = function (f) {
             setTimeout(f, 0);
         };
     }
 
+    // The database.
     var cache = {};
     var timeouts = {};
     var mySubscriptions = {};
@@ -45,9 +49,8 @@
     cache[zsets] = {};
     cache[hashes] = {};
 
-    ////////////////////
     // Utils
-    ////////////////////
+    // -----
 
     var cb = function (callback, context) {
         return function () {
@@ -132,10 +135,10 @@
         };
     };
 
-    ////////////////////
     // Keys Commands
-    ////////////////////
+    // -------------
 
+    // Delete a key
     redismock.del = function (key, callback) {
         var that = this;
         var count = 0;
@@ -161,39 +164,48 @@
         return cb(callback)(null, count);
     };
 
+    // Return a serialized version of the value stored at the specified key.
     redismock.dump = function (key, callback) {
         return cb(callback)(new Error("UNIMPLEMENTED"));
     };
 
+    // Determine if a key exists.
     redismock.exists = function (key, callback) {
         return cb(callback)(null, (cache[key] || cache[sets][key] || cache[zsets][key] || cache[hashes][key]) ? 1 : 0);
     };
 
+    // Set a key's time to live in seconds.
     redismock.expire = function (key, seconds, callback) {
         return this.pexpire(key, seconds*1000, callback);
     };
 
+    // Set the expiration for a key as a UNIX timestamp.
     redismock.expireat = function (key, timestamp, callback) {
         var now = new Date();
         return this.pexpire(key, timestamp*1000 - now.getTime(), callback);
     };
 
+    // Find all the keys matching a given pattern.
     redismock.keys = function (pattern, callback) {
         return cb(callback)(new Error("UNIMPLEMENTED"));
     };
 
+    // Atomically transfer a key from a Redis instance to another one.
     redismock.migrate = function (host, port, key, destination_db, timeout, callback) {
         return cb(callback)(new Error("UNIMPLEMENTED"));
     };
 
+    // Move a key to another database.
     redismock.move = function (key, db, callback) {
         return cb(callback)(new Error("UNIMPLEMENTED"));
     };
 
+    // Inspect the internals of Redis objects.
     redismock.object = function (subcommand, callback) {
         return cb(callback)(new Error("UNIMPLEMENTED"));
     };
 
+    // Remove the expiration from a key.
     redismock.persist = function (key, callback) {
         if (this.exists(key) && key in timeouts) {
             clearTimeout(timeouts[key]);
@@ -202,6 +214,7 @@
         return cb(callback)(null, 0);
     };
 
+    // Set a key's time to live in milliseconds.
     redismock.pexpire = function (key, milliseconds, callback) {
         var that = this;
         if (this.exists(key)) {
@@ -221,18 +234,21 @@
         return cb(callback)(null, 0);
     };
 
+    // Set the expiration for a key as a UNIX timestamp specified in milliseconds.
     redismock.pexpireat = function (key, timestamp, callback) {
         var now = new Date();
         return this.pexpire(key, timestamp - now.getTime(), callback);
     };
 
+    // Get the time to live for a key in milliseconds.
     redismock.pttl = function (key, callback) {
         return cb(callback)(new Error("UNIMPLEMENTED"));
     };
 
+    // Return a random key from the keyspace.
     redismock.randomkey = function (callback) {
-        // Return the Nth key with probability 1/(N + 1).
-        var n = 2;
+        // Return the Nth key with probability 1/N.
+        var n = 1;
         for (var key in cache) {
             if (cache.hasOwnProperty(key)) {
                 if (Math.random() < 1/n) {
@@ -263,6 +279,7 @@
         return cb(callback)(null, null);
     };
 
+    // Rename a key.
     redismock.rename = function (key, newkey, callback) {
         var val, type;
         if (!this.exists(key)) {
@@ -290,6 +307,7 @@
         return cb(callback)(null, 'OK');
     };
     
+    // Rename a key, only if the new key does not exist.
     redismock.renamenx = function (key, newkey, callback) {
         if (this.exists(newkey)) {
             return cb(callback)(null, 0);
@@ -297,18 +315,22 @@
         return this.rename(key, newkey, callback);
     };
 
+    // Create a key using the provided serialized value, previously obtained using DUMP.
     redismock.restore = function (key, ttl, serialized_value, callback) {
         return cb(callback)(new Error('UNIMPLEMENTED'));
     };
 
+    // Sort the elements in a list, set, or sorted set.
     redismock.sort = function (key, callback) {
         return cb(callback)(new Error('UNIMPLEMENTED'));
     };
 
+    // Get the time to live for a key.
     redismock.ttl = function (key, callback) {
         return cb(callback)(new Error('UNIMPLEMENTED'));
     };
 
+    // Determine the type stored at key.
     redismock.type = function (key, callback) {
         if (this.exists(key)) {
             var type = typeof cache[key];
@@ -333,13 +355,12 @@
         return cb(callback)(null, 'none');
     };
 
+    // Incrementally iterate the keyspace.
     redismock.scan = function (cursor, callback) {
         return cb(callback)(new Error('UNIMPLEMENTED'));
     };
 
-    ////////////////////
     // String Commands
-    ////////////////////
 
     redismock.append = function (key, value, callback) {
         return cb(callback)(new Error('UNIMPLEMENTED'));
@@ -487,9 +508,7 @@
             .end();
     };
 
-    ////////////////////
     // List Commands
-    ////////////////////
 
     redismock.lpush = function (key, element, callback) {
         var g = gather(this.lpush).apply(this, arguments);
