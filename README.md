@@ -110,20 +110,32 @@ setGetDelQ()
 
 ## Testing
 
-````
-npm test
+This project uses karma + mocha + chai.
+
+To run the full test suite, issue the standard npm command:
+
+````bash
+$ npm test
 ````
 
-````
-npm run test-phantomjs
-npm run test-firefox
-npm run test-chrome
-npm run test-safari
-npm run test-opera
-npm run test-ie
+This will run jshint against all the source files, run the full mocha suite with a coverage report, and finally run a complexity report against all the source files. Currently, the only source file is redis-mock.js.
+
+To run the mocha tests within a particular browser using karma, issue the following npm commands:
+
+````bash
+$ npm run test-phantomjs
+$ npm run test-firefox
+$ npm run test-chrome
+$ npm run test-safari
+$ npm run test-opera
+$ npm run test-ie
 ````
 
-## Support Commands
+These tests use the various karma-*-launcher projects to launch the browsers. If the browser is not installed on the system, the corresponding test command will print an error and hang.
+
+test-phantomjs is the only test command that does not rely on external dependencies. test-phantomjs will install the latest compatible version of phantomjs in a tmp directory, and use that binary to run the tests.
+
+## Supported Commands
 
 The goal is to have one-to-one feature parity with all redis commands, so that this implementation can simply be dropped into an existing redis-backed codebase. Redis has a lot of commands! Some of them are easy, and some are quite complex.
 
@@ -131,9 +143,9 @@ Version 0.1.0 should have support for almost all redis commands, minus the hyper
 
 To find out what commands a particular version of redis-js supports, run the following commands:
 
-````
-npm run implemented
-npm run unimplemented
+````bash
+$ npm run implemented
+$ npm run unimplemented
 ````
 
 Theses two commands will print out all the implemented and unimplemented commands respectively.
