@@ -993,6 +993,18 @@
             .end();
     };
 
+    redismock.zincrby = function (key, increment, member, callback) {
+        return cb(callback)(new Error('UNIMPLEMENTED'));
+    };
+
+    redismock.zinterstore = function (destination, numkeys, key, callback) {
+        return cb(callback)(new Error('UNIMPLEMENTED'));
+    };
+
+    redismock.zlexcount = function (key, min, max, callback) {
+        return cb(callback)(new Error('UNIMPLEMENTED'));
+    };
+
     redismock.zrange = function (key, start, stop, callback) {
         var withscores = false;
         if (typeof callback !== "function" && callback === "withscores") {
@@ -1035,6 +1047,14 @@
             })
             .thennx(function () { return cb(callback)(null, []); })
             .end();
+    };
+
+    redismock.zrangebylex = function (key, max, min, callback) {
+        return cb(callback)(new Error('UNIMPLEMENTED'));
+    };
+
+    redismock.zrevrangebylex = function (key, max, min, callback) {
+        return cb(callback)(new Error('UNIMPLEMENTED'));
     };
 
     redismock.zrangebyscore = function (key, min, max, callback) {
@@ -1177,6 +1197,41 @@
             .end();
     };
 
+    redismock.zremrangebylex = function (key, min, max, callback) {
+        return cb(callback)(new Error('UNIMPLEMENTED'));
+    };
+
+    redismock.zremrangebyscore = function (key, min, max, callback) {
+        return cb(callback)(new Error('UNIMPLEMENTED'));
+    };
+
+    redismock.zrevrange = function (key, start, stop, callback) {
+        return cb(callback)(new Error('UNIMPLEMENTED'));
+    };
+
+    redismock.zrevrangebyscore = function (key, max, min, callback) {
+        return cb(callback)(new Error('UNIMPLEMENTED'));
+    };
+
+    redismock.zrevrank = function (key, member, callback) {
+        return cb(callback)(new Error('UNIMPLEMENTED'));
+    };
+
+    redismock.zscore = function (key, member, callback) {
+        return cb(callback)(new Error('UNIMPLEMENTED'));
+    };
+
+    redismock.zunionstore = function (destination, numkeys, key, callback) {
+        return cb(callback)(new Error('UNIMPLEMENTED'));
+    };
+
+    redismock.zscan = function (key, cursor, callback) {
+        return cb(callback)(new Error('UNIMPLEMENTED'));
+    };
+
+    // Hash Commands
+    // -------------
+
     redismock.hdel = function (key, field, callback) {
         var count = 0;
         var g = gather(this.hdel).apply(this, arguments);
@@ -1232,10 +1287,43 @@
             .end();
     };
 
+    redismock.hincrby = function (key, field, increment, callback) {
+        return cb(callback)(new Error('UNIMPLEMENTED'));
+    };
+
+    redismock.hincrbyfloat = function (key, field, increment, callback) {
+        return cb(callback)(new Error('UNIMPLEMENTED'));
+    };
+
     redismock.hkeys = function (key, callback) {
         return this
             .ifType(key, 'hash', callback)
             .thenex(function () { return cb(callback)(null, Object.keys(cache[hashes][key])); })
+            .thennx(function () { return cb(callback)(null, []); })
+            .end();
+    };
+
+    redismock.hlen = function (key, callback) {
+        var r = this.hkeys(key);
+        if (r instanceof Error) {
+            return cb(callback)(r);
+        }
+        return cb(callback)(null, r.length);
+    };
+
+    redismock.hmget = function (key, field, callback) {
+        var g = gather(this.hmget).apply(this, arguments);
+        callback = g.callback;
+        return this
+            .ifType(key, 'hash', callback)
+            .thenex(function () {
+                var arr = g
+                    .list
+                    .map(function (f) {
+                        return cache[hashes][key][f];
+                    });
+                return cb(callback)(null, arr);
+            })
             .thennx(function () { return cb(callback)(null, []); })
             .end();
     };
@@ -1264,31 +1352,6 @@
                     });
                 return cb(callback)(null, 'OK');
             })
-            .end();
-    };
-
-    redismock.hlen = function (key, callback) {
-        var r = this.hkeys(key);
-        if (r instanceof Error) {
-            return cb(callback)(r);
-        }
-        return cb(callback)(null, r.length);
-    };
-
-    redismock.hmget = function (key, field, callback) {
-        var g = gather(this.hmget).apply(this, arguments);
-        callback = g.callback;
-        return this
-            .ifType(key, 'hash', callback)
-            .thenex(function () {
-                var arr = g
-                    .list
-                    .map(function (f) {
-                        return cache[hashes][key][f];
-                    });
-                return cb(callback)(null, arr);
-            })
-            .thennx(function () { return cb(callback)(null, []); })
             .end();
     };
 
@@ -1339,6 +1402,10 @@
             .end();
     };
 
+    redismock.hstrlen = function (key, field, callback) {
+        return cb(callback)(new Error('UNIMPLEMENTED'));
+    };
+
     redismock.hvals = function (key, callback) {
         var vals = [];
         return this
@@ -1352,6 +1419,34 @@
             })
             .then(function () { return cb(callback)(null, vals); })
             .end();
+    };
+
+    redismock.hscan = function (key, cursor, callback) {
+        return cb(callback)(new Error('UNIMPLEMENTED'));
+    };
+
+    // Pub/Sub Commands
+    // ----------------
+
+    redismock.psubscribe = function (pattern, callback) {
+        return cb(callback)(new Error('UNIMPLEMENTED'));
+    };
+
+    redismock.pubsub = function (subcommand, callback) {
+        return cb(callback)(new Error('UNIMPLEMENTED'));
+    };
+
+    redismock.publish = function (channel, message, callback) {
+        if (channel in mySubscriptions) {
+            mySubscriptions[channel].forEach(function (caller) {
+                cb(caller)(channel, message);
+            });
+        }
+        return cb(callback)(null, 'OK');
+    };
+
+    redismock.punsubscribe = function (callback) {
+        return cb(callback)(new Error('UNIMPLEMENTED'));
     };
 
     redismock.subscribe = function (channel, callback) {
@@ -1396,18 +1491,11 @@
         return cb(callback)(null, 'OK');
     };
 
-    redismock.publish = function (channel, message, callback) {
-        if (channel in mySubscriptions) {
-            mySubscriptions[channel].forEach(function (caller) {
-                cb(caller)(channel, message);
-            });
-        }
-        return cb(callback)(null, 'OK');
-    };
+    // Transactions Commands
+    // ---------------------
 
-    redismock.watch = function (key, callback) {
-        watchers[key] = false;
-        return cb(callback)(null, 'OK');
+    redismock.discard = function (callback) {
+        return cb(callback)(new Error('UNIMPLEMENTED'));
     };
 
     redismock.multi = function () {
@@ -1452,30 +1540,204 @@
         return rc;
     };
 
+    redismock.unwatch = function (callback) {
+        return cb(callback)(new Error('UNIMPLEMENTED'));
+    };
+
+    redismock.watch = function (key, callback) {
+        watchers[key] = false;
+        return cb(callback)(null, 'OK');
+    };
+
+    // Scripting Commands
+    // ------------------
+
+    redismock.eval = function (script, numkeys, key, callback) {
+        return cb(callback)(new Error('UNIMPLEMENTED'));
+    };
+
+    redismock.evalsha = function (sha1, numkeys, key, callback) {
+        return cb(callback)(new Error('UNIMPLEMENTED'));
+    };
+
+    redismock.script_exists = function (script, callback) {
+        return cb(callback)(new Error('UNIMPLEMENTED'));
+    };
+
+    redismock.script_flush = function (callback) {
+        return cb(callback)(new Error('UNIMPLEMENTED'));
+    };
+
+    redismock.script_kill = function (callback) {
+        return cb(callback)(new Error('UNIMPLEMENTED'));
+    };
+
+    redismock.script_load = function (callback) {
+        return cb(callback)(new Error('UNIMPLEMENTED'));
+    };
+
+    // Connection Commands
+    // -------------------
+
+    redismock.auth = function (password, callback) {
+        return cb(callback)(new Error('UNIMPLEMENTED'));
+    };
+
+    redismock.echo = function (message, callback) {
+        return cb(callback)(new Error('UNIMPLEMENTED'));
+    };
+
+    redismock.ping = function (callback) {
+        return cb(callback)(new Error('UNIMPLEMENTED'));
+    };
+
+    redismock.quit = function (callback) {
+        return cb(callback)(new Error('UNIMPLEMENTED'));
+    };
+
+    redismock.select = function (callback) {
+        return cb(callback)(new Error('UNIMPLEMENTED'));
+    };
+
+    // Server Commands
+    // ---------------
+
+    redismock.bgrewriteaof = function (callback) {
+        return cb(callback)(new Error('UNIMPLEMENTED'));
+    };
+
+    redismock.bgsave = function (callback) {
+        return cb(callback)(new Error('UNIMPLEMENTED'));
+    };
+
+    redismock.client_kill = function (callback) {
+        return cb(callback)(new Error('UNIMPLEMENTED'));
+    };
+
+    redismock.client_list = function (callback) {
+        return cb(callback)(new Error('UNIMPLEMENTED'));
+    };
+
+    redismock.client_getname = function (callback) {
+        return cb(callback)(new Error('UNIMPLEMENTED'));
+    };
+
+    redismock.client_pause = function (timeout, callback) {
+        return cb(callback)(new Error('UNIMPLEMENTED'));
+    };
+
+    redismock.client_setname = function (connection_name, callback) {
+        return cb(callback)(new Error('UNIMPLEMENTED'));
+    };
+
+    redismock.cluster_slots = function (callback) {
+        return cb(callback)(new Error('UNIMPLEMENTED'));
+    };
+
+    redismock.command = function (callback) {
+        return cb(callback)(new Error('UNIMPLEMENTED'));
+    };
+
+    redismock.command_count = function (callback) {
+        return cb(callback)(new Error('UNIMPLEMENTED'));
+    };
+
+    redismock.command_getkeys = function (callback) {
+        return cb(callback)(new Error('UNIMPLEMENTED'));
+    };
+
+    redismock.command_info = function (callback) {
+        return cb(callback)(new Error('UNIMPLEMENTED'));
+    };
+
+    redismock.config_get = function (callback) {
+        return cb(callback)(new Error('UNIMPLEMENTED'));
+    };
+
+    redismock.config_rewrite = function (callback) {
+        return cb(callback)(new Error('UNIMPLEMENTED'));
+    };
+
+    redismock.config_set = function (parameter, value, callback) {
+        return cb(callback)(new Error('UNIMPLEMENTED'));
+    };
+
+    redismock.config_resetstat = function (callback) {
+        return cb(callback)(new Error('UNIMPLEMENTED'));
+    };
+
+    redismock.dbsize = function (callback) {
+        return cb(callback)(new Error('UNIMPLEMENTED'));
+    };
+
+    redismock.debug_object = function (key, callback) {
+        return cb(callback)(new Error('UNIMPLEMENTED'));
+    };
+
+    redismock.debug_segfault = function (callback) {
+        return cb(callback)(new Error('UNIMPLEMENTED'));
+    };
+
+    redismock.flushall = function (callback) {
+        return cb(callback)(new Error('UNIMPLEMENTED'));
+    };
+
+    redismock.flushdb = function (callback) {
+        cache = {};
+        cache[sets] = {};
+        cache[zsets] = {};
+        cache[hashes] = {};
+        watchers = {};
+        mySubscriptions = {};
+        Object.keys(timeouts).forEach(function (key) {
+            clearTimeout(timeouts[key]);
+        });
+        timeouts = {};
+        return cb(callback)(null, 'OK');
+    };
+
     redismock.info = function (callback) {
         return cb(callback)(new Error('UNIMPLEMENTED'));
     };
-    
-    redismock.warnings = function (logger) {
-        if (!logger) {
-            logger = console;
-        }
-        var mods = [];
-        for (var key in redismock) {
-            if (typeof redismock[key] === "function") {
-                mods.push(redismock[key]);
-            }
-        }
-        mods.forEach(function (mod) {
-            var m = redismock[mod];
-            redismock[mod] = function () {
-                if (m.length >= 2 && arguments.length <= m.length - 2) {
-                    logger.warn('WARN ' + key + ' passed ' + arguments.length + ' arguments, but probably expects at least ' + capture[key].length - 1 + ' arguments');
-                }
-                return m.apply(redismock, arguments);
-            };
-        });
+
+    redismock.lastsave = function (callback) {
+        return cb(callback)(new Error('UNIMPLEMENTED'));
     };
+
+    redismock.monitor = function (callback) {
+        return cb(callback)(new Error('UNIMPLEMENTED'));
+    };
+
+    redismock.role = function (callback) {
+        return cb(callback)(new Error('UNIMPLEMENTED'));
+    };
+
+    redismock.save = function (callback) {
+        return cb(callback)(new Error('UNIMPLEMENTED'));
+    };
+
+    redismock.shutdown = function (callback) {
+        return cb(callback)(new Error('UNIMPLEMENTED'));
+    };
+
+    redismock.slaveof = function (host, port, callback) {
+        return cb(callback)(new Error('UNIMPLEMENTED'));
+    };
+
+    redismock.slowlog = function (subcommand, callback) {
+        return cb(callback)(new Error('UNIMPLEMENTED'));
+    };
+
+    redismock.sync = function (callback) {
+        return cb(callback)(new Error('UNIMPLEMENTED'));
+    };
+
+    redismock.time = function (callback) {
+        return cb(callback)(new Error('UNIMPLEMENTED'));
+    };
+
+    // Modifications
+    // -------------
 
     var modifiers = ['del', 'set', 'lpush', 'rpush', 'lpop', 'rpop', 'ltrim', 'sadd', 'srem', 'zadd', 'zrem']; // TODO: Add the rest.
     var capture = {};
