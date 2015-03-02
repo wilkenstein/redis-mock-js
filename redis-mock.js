@@ -1552,9 +1552,11 @@
     // Scripting Commands
     // ------------------
 
+    /* jshint ignore:start */
     redismock.eval = function (script, numkeys, key, callback) {
         return cb(callback)(new Error('UNIMPLEMENTED'));
     };
+    /* jshint ignore:end */
 
     redismock.evalsha = function (sha1, numkeys, key, callback) {
         return cb(callback)(new Error('UNIMPLEMENTED'));

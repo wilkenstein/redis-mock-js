@@ -6,12 +6,51 @@
     chai.config.includeStack = true;
     var expect = chai.expect;
 
+    var ignorekeys = [
+        'randomkey',
+        'multi',
+        'info',
+        'punsubscribe',
+        'discard',
+        'unwatch',
+        'script_flush',
+        'script_kill',
+        'script_load',
+        'ping',
+        'quit',
+        'select',
+        'bgrewriteaof',
+        'bgsave',
+        'client_kill',
+        'client_list',
+        'client_getname',
+        'cluster_slots',
+        'command',
+        'command_count',
+        'command_getkeys',
+        'command_info',
+        'config_get',
+        'config_rewrite',
+        'config_resetstat',
+        'dbsize',
+        'debug_segfault',
+        'flushall',
+        'flushdb',
+        'lastsave',
+        'monitor',
+        'role',
+        'save',
+        'shutdown',
+        'sync',
+        'time'
+    ];
+
     describe('args check', function () {
         it('returns an error if we do not have the right number of arguments', function () {
             for (var key in redismock) {
                 if (typeof redismock[key] === "function") {
                     err = redismock[key]();
-                    if (key === 'randomkey' || key === 'multi' || key === 'info' || key === 'warnings') {
+                    if (ignorekeys.indexOf(key) !== -1) {
                         // 0 args, so skip, or intentionally skip.
                         continue;
                     }
