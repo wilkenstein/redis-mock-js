@@ -1,5 +1,5 @@
 /* jshint unused:true, undef:true, strict:true, plusplus:true */
-/* global setTimeout:false, module:false, exports:true, clearTimeout:false, console:false */
+/* global setTimeout:false, module:false, exports:true, clearTimeout:false, console:false, process:true */
 
 (function () {
 
@@ -35,6 +35,11 @@
         var setImmediate = function (f) {
             setTimeout(f, 0);
         };
+    }
+
+    // Create the process variable if it does not exist.
+    if (typeof process === 'undefined') {
+        var process = {};
     }
 
     // The database.
@@ -181,17 +186,26 @@
                     }
                     if (typeof this._ifex === 'function') {
                         ret = this._ifex.call(that);
+                        if (ret && ret instanceof Error) {
+                            return cb(callback)(ret);
+                        }
                     }
                 }
                 else {
                     if (typeof this._ifnx === 'function') {
                         ret = this._ifnx.call(that);
+                        if (ret && ret instanceof Error) {
+                            return cb(callback)(ret);
+                        }
                     }
                 }
                 if (typeof this._then === 'function') {
                     ret = this._then.call(that);
+                    if (ret && ret instanceof Error) {
+                        return cb(callback)(ret);
+                    }
                 }
-                return ret;
+                return cb(callback)(null, ret);
             }
         };
     };
@@ -469,7 +483,17 @@
     // String Commands
 
     redismock.append = function (key, value, callback) {
-        return cb(callback)(new Error('UNIMPLEMENTED'));
+        return this
+            .ifType(key, 'string', callback)
+            .thenex(function () {
+                cache[key] += value;
+                return null;
+            })
+            .thennx(function () {
+                return this.set(key, value);
+            })
+            .then(function () { return cache[key].length; })
+            .end();
     };
 
     redismock.bitcount = function (key, callback) {
@@ -526,15 +550,48 @@
     };
 
     redismock.mget = function (key, callback) {
-        return cb(callback)(new Error('UNIMPLEMENTED'));
+        var g = gather(this.mget).apply(this, arguments);
+        callback = g.callback;
+        return cb(callback)(null, g.list.map(function (k) {
+            return cache[k] || null;
+        }));
     };
 
     redismock.mset = function (key, value, callback) {
-        return cb(callback)(new Error('UNIMPLEMENTED'));
+        var kvs = [];
+        var that = this;
+        var g = gather(this.mset, 2).apply(this, arguments);
+        callback = g.callback;
+        g.list.forEach(function (opt, index) {
+            if (index % 2 === 0) {
+                kvs.push([opt, g.list[index + 1]]);
+            }
+        });
+        kvs.forEach(function (kv) {
+            that.set(kv[0], kv[1]);
+        });
+        return cb(callback)(null, 'OK');
     };
 
     redismock.msetnx = function (key, value, callback) {
-        return cb(callback)(new Error('UNIMPLEMENTED'));
+        var kvs = [];
+        var that = this;
+        var g = gather(this.msetnx, 2).apply(this, arguments);
+        callback = g.callback;
+        g.list.forEach(function (opt, index) {
+            if (index % 2 === 0) {
+                kvs.push([opt, g.list[index + 1]]);
+            }
+        });
+        if (kvs.some(function (kv) {
+            return that.exists(kv[0]);
+        })) {
+            return cb(callback)(null, 0);
+        }
+        kvs.forEach(function (kv) {
+            that.set(kv[0], kv[1]);
+        });
+        return cb(callback)(null, 1);
     };
 
     redismock.psetex = function (key, milliseconds, value, callback) {
@@ -544,7 +601,6 @@
     };
 
     redismock.set = function (key, value, callback) {
-        var that = this;
         var nx = false, xx = false, ex = -1, px = -1;
         var g = gather(this.set).apply(this, arguments);
         callback = g.callback;
@@ -563,12 +619,12 @@
             }
         });
         if (nx) {
-            if (that.exists(key)) {
+            if (this.exists(key)) {
                 return cb(callback)(null, null);
             }
         }
         if (xx) {
-            if (!that.exists(key)) {
+            if (!this.exists(key)) {
                 return cb(callback)(null, null);
             }
         }
@@ -610,8 +666,8 @@
         }
         return this
             .ifType(key, 'string', callback)
-            .thenex(function () { return cb(callback)(null, cache[key].length); })
-            .thennx(function () { return cb(callback)(null, 0); })
+            .thenex(function () { return cache[key].length; })
+            .thennx(function () { return 0; })
             .end();
     };
 
@@ -642,7 +698,7 @@
                     elem = cache[key][cache[key].length + i];
                 }
             })
-            .then(function () { return cb(callback)(null, elem); })
+            .then(function () { return elem; })
             .end();
     };
 
@@ -658,27 +714,27 @@
                     else if (beforeafter === 'after') {
                         cache[key].splice(idx + 1, 0, value);
                     }
-                    return cb(callback)(null, cache[key].length);
+                    return cache[key].length;
                 }
-                return cb(callback)(null, -1);
+                return -1;
             })
-            .thennx(function () { return cb(callback)(null, 0); })
+            .thennx(function () { return 0; })
             .end();
     };
 
     redismock.llen = function (key, callback) {
         return this
             .ifType(key, 'list', callback)
-            .thenex(function () { return cb(callback)(null, cache[key].length); })
-            .thennx(function () { return cb(callback)(null, 0); })
+            .thenex(function () { return cache[key].length; })
+            .thennx(function () { return 0; })
             .end();
     };
 
     redismock.lpop = function (key, callback) {
         return this
             .ifType(key, 'list', callback)
-            .thenex(function () { return cb(callback)(null, cache[key].shift()); })
-            .thennx(function () { return cb(callback)(null, null); })
+            .thenex(function () { return cache[key].shift(); })
+            .thennx(function () { return null; })
             .end();
     };
 
@@ -690,7 +746,7 @@
             .thennx(function () { cache[key] = []; })
             .then(function () {
                 cache[key] = g.list.concat(cache[key]);
-                return cb(callback)(null, cache[key].length);
+                return cache[key].length;
             })
             .end();
     };
@@ -700,9 +756,9 @@
             .ifType(key, 'list', callback)
             .thenex(function () {
                 cache[key].unshift(element);
-                return cb(callback)(null, cache[key].length);
+                return cache[key].length;
             })
-            .thennx(function () { return cb(callback)(null, 0); })
+            .thennx(function () { return 0; })
             .end();
     };
 
@@ -731,7 +787,7 @@
                     l = cache[key].slice(start, end + 1);
                 }
             })
-            .then(function () { return cb(callback)(null, l); })
+            .then(function () { return l; })
             .end();
     };
 
@@ -753,10 +809,10 @@
                     }
                 }
                 if (!cache[key].length) {
-                    delete cache[key];
+                    this.del(key);
                 }
             })
-            .then(function () { return cb(callback)(null, cnt); })
+            .then(function () { return cnt; })
             .end();
     };
 
@@ -765,12 +821,12 @@
             .ifType(key, 'list', callback)
             .thenex(function () { 
                 if (index >= cache[key].length) {
-                    return cb(callback)(new Error('ERR index out of range'));
+                    return new Error('ERR index out of range');
                 }
                 cache[key][index] = element;
-                return cb(callback)(null, 'OK');
+                return 'OK';
             })
-            .thennx(function () { return cb(callback)(new Error('ERR no such key')); })
+            .thennx(function () { return new Error('ERR no such key'); })
             .end();
     };
 
@@ -800,9 +856,9 @@
             })
             .then(function () { 
                 if (this.exists(key) && !cache[key].length) {
-                    delete cache[key];
+                    this.del(key);
                 }
-                return cb(callback)(null, 'OK');
+                return 'OK';
             })
             .end();
     };
@@ -810,8 +866,8 @@
     redismock.rpop = function (key, callback) {
         return this
             .ifType(key, 'list', callback)
-            .thenex(function () { return cb(callback)(null, cache[key].pop()); })
-            .thennx(function () { return cb(callback)(null, null); })
+            .thenex(function () { return cache[key].pop(); })
+            .thennx(function () { return null; })
             .end();
     };
 
@@ -838,7 +894,7 @@
             .thennx(function () { cache[key] = []; })
             .then(function () {
                 cache[key] = cache[key].concat(g.list);
-                return cb(callback)(null, cache[key].length);
+                return cache[key].length;
             })
             .end();
     };
@@ -848,9 +904,9 @@
             .ifType(key, 'list', callback)
             .thenex(function () {
                 cache[key].push(element);
-                return cb(callback)(null, cache[key].length);
+                return cache[key].length;
             })
-            .thennx(function () { return cb(callback)(null, 0); })
+            .thennx(function () { return 0; })
             .end();
     };
 
@@ -875,7 +931,7 @@
                         count += 1;
                     }
                 });
-                return cb(callback)(null, count);
+                return count;
             })
             .end();
     };
@@ -883,8 +939,8 @@
     redismock.scard = function (key, callback) {
         return this
             .ifType(key, 'set', callback)
-            .thenex(function () { return cb(callback)(null, Object.keys(cache[sets][key]).length); })
-            .thennx(function () { return cb(callback)(null, 0); })
+            .thenex(function () { return Object.keys(cache[sets][key]).length; })
+            .thennx(function () { return 0; })
             .end();
     };
 
@@ -907,16 +963,16 @@
     redismock.sismember = function (key, member, callback) {
         return this
             .ifType(key, 'set', callback)
-            .thenex(function () { return cb(callback)(null, member in cache[sets][key] ? 1 : 0); })
-            .thennx(function () { return cb(callback)(null, 0); })
+            .thenex(function () { return member in cache[sets][key] ? 1 : 0; })
+            .thennx(function () { return 0; })
             .end();
     };
 
     redismock.smembers = function (key, callback) {
         return this
             .ifType(key, 'set', callback)
-            .thenex(function () { return cb(callback)(null, Object.keys(cache[sets][key])); })
-            .thennx(function () { return cb(callback)(null, []); })
+            .thenex(function () { return Object.keys(cache[sets][key]); })
+            .thennx(function () { return []; })
             .end();
     };
 
@@ -962,18 +1018,18 @@
                 var k = Object.keys(cache[sets][key]);
                 var idx, randos;
                 if (count === 0) {
-                    return cb(callback)(null, null);
+                    return null;
                 }
                 if (count) {
                     randos = [];
                     for (idx = 0; idx < Math.abs(count); idx += 1) {
-                        randos.push(cache[sets][key][k[Math.floor(Math.random() & k.length)]]);
+                        randos.push(cache[sets][key][k[Math.floor(Math.random() * k.length)]]);
                     }
-                    return cb(callback)(null, randos);
+                    return randos;
                 }
-                return cb(callback)(null, cache[sets][key][k[Math.floor(Math.random() * k.length)]]);
+                return cache[sets][key][k[Math.floor(Math.random() * k.length)]];
             })
-            .thennx(function () { return cb(callback)(null, null); })
+            .thennx(function () { return null; })
             .end();
     };
 
@@ -992,10 +1048,10 @@
                     }
                 });
                 if (!Object.keys(cache[sets][key]).length) {
-                    delete cache[sets][key];
+                    this.del(key);
                 }
             })
-            .then(function () { return cb(callback)(null, count); })
+            .then(function () { return count; })
             .end();
     };
 
@@ -1061,7 +1117,7 @@
                             count += 1;
                         }
                     });
-                return cb(callback)(null, count);
+                return count;
             })
             .end();
     };
@@ -1073,9 +1129,9 @@
                 var count = Object.keys(cache[zsets][key]).reduce(function (cnt, score) {
                     return cnt + cache[zsets][key][score].length;
                 }, 0);
-                return cb(callback)(null, count); 
+                return count; 
             })
-            .thennx(function () { return cb(callback)(null, 0); })
+            .thennx(function () { return 0; })
             .end();
     };
 
@@ -1094,9 +1150,9 @@
                     .reduce(function (cnt, score) {
                         return cnt + cache[zsets][key][score].length;
                     }, 0);
-                return cb(callback)(null, count);
+                return count;
             })
-            .thennx(function () { return cb(callback)(null, 0); })
+            .thennx(function () { return 0; })
             .end();
     };
 
@@ -1150,9 +1206,9 @@
                         }
                         return false;
                     });
-                return cb(callback)(null, arr);
+                return arr;
             })
-            .thennx(function () { return cb(callback)(null, []); })
+            .thennx(function () { return []; })
             .end();
     };
 
@@ -1245,9 +1301,9 @@
                     }
                     return false;
                 });
-                return cb(callback)(null, arr);
+                return arr;
             })
-            .thennx(function () { return cb(callback)(null, []); })
+            .thennx(function () { return []; })
             .end();
     };
 
@@ -1270,11 +1326,11 @@
                         return false;
                     });
                 if (!found) {
-                    return cb(callback)(null, null);
+                    return null;
                 }
-                return cb(callback)(null, idx);
+                return idx;
             })
-            .thennx(function () { return cb(callback)(null, null); })
+            .thennx(function () { return null; })
             .end();
     };
 
@@ -1294,13 +1350,16 @@
                                 cache[zsets][key][score].splice(idx, 1);
                                 count += 1;
                             }
+                            if (!cache[zsets][key][score]) {
+                                delete cache[zsets][key][score];
+                            }
                         });
                 });
                 if (Object.keys(cache[zsets][key]).length === 0) {
-                    delete cache[zsets][key];
+                    this.del(key);
                 }
             })
-            .then(function () { return cb(callback)(null, count); })
+            .then(function () { return count; })
             .end();
     };
 
@@ -1353,26 +1412,26 @@
                     }
                 });
                 if (Object.keys(cache[hashes][key]).length === 0) {
-                    delete cache[hashes][key];
+                    this.del(key);
                 }
             })
-            .then(function () { return cb(callback)(null, count); })
+            .then(function () { return count; })
             .end();
     };
     
     redismock.hexists = function (key, field,  callback) {
         return this
             .ifType(key, 'hash', callback)
-            .thenex(function () { return cb(callback)(null, field in cache[hashes][key] ? 1 : 0); })
-            .thennx(function () { return cb(callback)(null, 0); })
+            .thenex(function () { return field in cache[hashes][key] ? 1 : 0; })
+            .thennx(function () { return 0; })
             .end();
     };
 
     redismock.hget = function (key, field, callback) {
         return this
             .ifType(key, 'hash', callback)
-            .thenex(function () { return cb(callback)(null, cache[hashes][key][field]); })
-            .thennx(function () { return cb(callback)(null, null); })
+            .thenex(function () { return cache[hashes][key][field]; })
+            .thennx(function () { return null; })
             .end();
     };
 
@@ -1388,9 +1447,9 @@
                     .reduce(function (prev, fv) {
                         return prev.concat(fv);
                     }, []);
-                return cb(callback)(null, arr);
+                return arr;
             })
-            .thennx(function () { return cb(callback)(null, []); })
+            .thennx(function () { return []; })
             .end();
     };
 
@@ -1405,8 +1464,8 @@
     redismock.hkeys = function (key, callback) {
         return this
             .ifType(key, 'hash', callback)
-            .thenex(function () { return cb(callback)(null, Object.keys(cache[hashes][key])); })
-            .thennx(function () { return cb(callback)(null, []); })
+            .thenex(function () { return Object.keys(cache[hashes][key]); })
+            .thennx(function () { return []; })
             .end();
     };
 
@@ -1429,9 +1488,9 @@
                     .map(function (f) {
                         return cache[hashes][key][f];
                     });
-                return cb(callback)(null, arr);
+                return arr;
             })
-            .thennx(function () { return cb(callback)(null, []); })
+            .thennx(function () { return []; })
             .end();
     };
 
@@ -1457,7 +1516,7 @@
                     .forEach(function (fv) {
                         that.hset(key, fv[0], fv[1]);
                     });
-                return cb(callback)(null, 'OK');
+                return 'OK';
             })
             .end();
     };
@@ -1480,7 +1539,7 @@
             })
             .then(function () { 
                 cache[hashes][key][field] = value;
-                return cb(callback)(null, ret); 
+                return ret; 
             })
             .end();
     };
@@ -1504,7 +1563,7 @@
                 if (ret === 1) {
                     cache[hashes][key][field] = value;
                 }
-                return cb(callback)(null, ret); 
+                return ret; 
             })
             .end();
     };
@@ -1524,7 +1583,7 @@
                         return cache[hashes][key][field];
                     });
             })
-            .then(function () { return cb(callback)(null, vals); })
+            .then(function () { return vals; })
             .end();
     };
 
@@ -1871,12 +1930,24 @@
         var now = new Date();
         var epoch = now.getTime();
         var us;
-        if (root.performance && root.performance.now) {
-            now = root.performance.now();
-            us = (now - Math.floor(now)) * 100000;
+        if (root.performance) {
+            if (root.performance.now) {
+                now = root.performance.now();
+                us = (now - Math.floor(now)) * 100000;
+            }
+            else if (root.performance.webkitNow) {
+                now = root.performance.webkitNow();
+                us = (now - Math.floor(now)) * 100000;
+            }
+            else {
+                us = 0;
+            }
         }
         else if (process && process.hrtime) {
             us = process.hrtime()[1] / 1000;
+        }
+        else {
+            us = 0;
         }
         return cb(callback)(null, [epoch, us]); 
     };

@@ -14,7 +14,42 @@
     }
 
     describe('append', function () {
-        xit('should append');
+        it('should return an error for a key that does not map to string', function (done) {
+            var k = randkey();
+            var v = 'value';
+            redismock.lpush(k, v);
+            expect(redismock.append(k, v)).to.be.an.instanceof(Error);
+            redismock.append(k, v, function (err, reply) {
+                expect(err).to.exist;
+                expect(reply).to.not.exist;
+                expect(err).to.be.an.instanceof(Error);
+                expect(err.message.indexOf('WRONGTYPE')).to.be.above(-1);
+                done();
+            });
+        });
+        it('should create the key if it does not already exist', function (done) {
+            var k = randkey(), k2 = randkey();
+            var v = 'v', v2 = 'value2';
+            expect(redismock.append(k, v)).to.equal(v.length);
+            redismock.append(k2, v2, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal(v2.length);
+                done();
+            });
+        });
+        it('should append to the key if it exists', function (done) {
+            var k = randkey();
+            var v = 'v', v1 = 'v1', v2 = 'v2';
+            redismock.set(k, v);
+            expect(redismock.append(k, v1)).to.equal(v.length + v1.length);
+            expect(redismock.get(k)).to.equal(v + v1);
+            redismock.append(k, v2, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal(v.length + v1.length + v2.length);
+                expect(redismock.get(k)).to.equal(v + v1 + v2);
+                done();
+            });
+        });
     });
 
     describe('bitcount', function () {
@@ -136,15 +171,81 @@
     });
 
     describe('mget', function () {
-        xit('should mget');
+        it('should get all the keys', function (done) {
+            var k1 = randkey(), k2 = randkey(), k3 = randkey();
+            var v1 = 'v1', v2 = 'v2', v3 = 'v3';
+            expect(redismock.mset(k1, v1, k2, v2, k3, v3)).to.equal('OK');
+            var gets = redismock.mget(k1, k2, k3);
+            expect(gets).to.have.lengthOf(3);
+            expect(gets[0]).to.equal(v1);
+            expect(gets[1]).to.equal(v2);
+            expect(gets[2]).to.equal(v3);
+            redismock.mget(k1, k3, 'na', k2, 'ne', function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.have.lengthOf(5);
+                expect(reply[0]).to.equal(v1);
+                expect(reply[1]).to.equal(v3);
+                expect(reply[2]).to.not.exist;
+                expect(reply[3]).to.equal(v2);
+                expect(reply[4]).to.not.exist;
+                done();
+            });
+        });
     });
 
     describe('mset', function () {
-        xit('should mset');
+        it('should set all the keys', function (done) {
+            var k1 = randkey(), k2 = randkey(), k3 = randkey();
+            var v1 = 'v1', v2 = 'v2', v3 = 'v3';
+            expect(redismock.mset(k1, v1, k2, v2, k3, v3)).to.equal('OK');
+            expect(redismock.get(k1)).to.equal(v1);
+            expect(redismock.get(k2)).to.equal(v2);
+            expect(redismock.get(k3)).to.equal(v3);
+            redismock.mset(k1, v3, k2, v2, k3, v1, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal('OK');
+                expect(redismock.get(k1)).to.equal(v3);
+                expect(redismock.get(k2)).to.equal(v2);
+                expect(redismock.get(k3)).to.equal(v1);
+                done();
+            });
+        });
     });
 
     describe('msetnx', function () {
-        xit('should msetnx');
+        it('should set all the keys if none already exist', function (done) {
+            var k1 = randkey(), k2 = randkey(), k3 = randkey();
+            var v1 = 'v1', v2 = 'v2', v3 = 'v3';
+            expect(redismock.msetnx(k1, v1, k2, v2, k3, v3)).to.equal(1);
+            expect(redismock.get(k1)).to.equal(v1);
+            expect(redismock.get(k2)).to.equal(v2);
+            expect(redismock.get(k3)).to.equal(v3);
+            redismock.flushdb();
+            redismock.msetnx(k1, v3, k2, v2, k3, v1, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal(1);
+                expect(redismock.get(k1)).to.equal(v3);
+                expect(redismock.get(k2)).to.equal(v2);
+                expect(redismock.get(k3)).to.equal(v1);
+                done();
+            });
+        });
+        it('should not set any key if at least one already exists', function (done) {
+            var k1 = randkey(), k2 = randkey(), k3 = randkey();
+            var v1 = 'v1', v2 = 'v2', v3 = 'v3';
+            expect(redismock.msetnx(k1, v1, k2, v2, k3, v3)).to.equal(1);
+            expect(redismock.get(k1)).to.equal(v1);
+            expect(redismock.get(k2)).to.equal(v2);
+            expect(redismock.get(k3)).to.equal(v3);
+            redismock.msetnx(k1, v3, k2, v2, k3, v1, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal(0);
+                expect(redismock.get(k1)).to.equal(v1);
+                expect(redismock.get(k2)).to.equal(v2);
+                expect(redismock.get(k3)).to.equal(v3);
+                done();
+            });
+        });
     });
 
     describe('psetex', function () {
