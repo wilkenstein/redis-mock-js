@@ -52,6 +52,67 @@
     // Utils
     // -----
 
+    // From https://gist.github.com/Breton/2699916
+    String.prototype.escape = function () {
+        var escapable = /[.\\\"\x00-\x1f\x7f-\x9f\u00ad\u0600-\u0604\u070f\u17b4\u17b5\u200c-\u200f\u2028-\u202f\u2060-\u206f\ufeff\ufff0-\uffff]/g,
+            meta = { // table of character substitutions
+                '\b': '\\b',
+                '\t': '\\t',
+                '\n': '\\n',
+                '\f': '\\f',
+                '\r': '\\r',
+                '\.': '\\.',
+                '"': '\\"',
+                '\\': '\\\\'
+            };
+        function escapechar(a) {
+            var c = meta[a];
+            return typeof c === 'string' ? c : '\\u' + ('0000' + a.charCodeAt(0).toString(16)).slice(-4);
+        }
+        return this.replace(escapable, escapechar);
+    };
+    //Translate a shell PATTERN to a regular expression.
+    function translate(pat) {
+        //There is no way to quote meta-characters.
+        var i=0, j, n = pat.length || 0, res, c, stuff;
+        res = '^';
+        while (i < n) {
+            c = pat[i];
+            i = i + 1;
+            if (c === '*') {
+                res = res + '.*';
+            } else if (c === '?') {
+                res = res + '.';
+            } else if (c === '[') {
+                j = i;
+                if (j < n && pat[j] === '!') {
+                    j = j + 1;
+                }
+                if (j < n && pat[j] === ']') {
+                    j = j + 1;
+                }
+                while (j < n && pat[j] !== ']') {
+                    j = j + 1;
+                }
+                if (j >= n) {
+                    res = res + '\\[';
+                } else {
+                    stuff = pat.slice(i, j).replace('\\', '\\\\');
+                    i = j + 1;
+                    if (stuff[0] === '!') {
+                        stuff = '^' + stuff.slice(1);
+                    } else if (stuff[0] === '^') {
+                        stuff = '\\' + stuff;
+                    }
+                    res = res + '[' + stuff + ']';
+                }
+            } else {
+                res = res + (c).escape();
+            }
+        }
+        return res + '$';
+    }
+
     var cb = function (callback, context) {
         return function () {
             var args = arguments;
@@ -187,7 +248,40 @@
 
     // Find all the keys matching a given pattern.
     redismock.keys = function (pattern, callback) {
-        return cb(callback)(new Error("UNIMPLEMENTED"));
+        var keys = [], key;
+        var regex = new RegExp(translate(pattern));
+        for (key in cache) {
+            if (key === sets || key === zsets || key === hashes) {
+                continue;
+            }
+            if (cache.hasOwnProperty(key)) {
+                if (key.match(regex) !== null) {
+                    keys.push(key);
+                }
+            }
+        }
+        for (key in cache[sets]) {
+            if (cache[sets].hasOwnProperty(key)) {
+                if (key.match(regex) !== null) {
+                    keys.push(key);
+                }
+            }
+        }
+        for (key in cache[zsets]) {
+            if (cache[zsets].hasOwnProperty(key)) {
+                if (key.match(regex) !== null) {
+                    keys.push(key);
+                }
+            }
+        }
+        for (key in cache[hashes]) {
+            if (cache[hashes].hasOwnProperty(key)) {
+                if (key.match(regex) !== null) {
+                    keys.push(key);
+                }
+            }
+        }
+        return cb(callback)(null, keys);
     };
 
     // Atomically transfer a key from a Redis instance to another one.
@@ -208,7 +302,7 @@
     // Remove the expiration from a key.
     redismock.persist = function (key, callback) {
         if (this.exists(key) && key in timeouts) {
-            clearTimeout(timeouts[key]);
+            clearTimeout(timeouts[key].timeout);
             return cb(callback)(null, 1);
         }
         return cb(callback)(null, 0);
@@ -219,13 +313,17 @@
         var that = this;
         if (this.exists(key)) {
             if (key in timeouts) {
-                clearTimeout(timeouts[key]);
+                clearTimeout(timeouts[key].timeout);
             }
             if (milliseconds <= 0) {
                 this.del(key);
             }
             else {
-                timeouts[key] = setTimeout(function () {
+                timeouts[key] = {};
+                timeouts[key].start = new Date();
+                timeouts[key].end = (new Date(timeouts[key].start.getTime() + milliseconds));
+                timeouts[key].timeout = setTimeout(function () {
+                    timeouts[key] = undefined;
                     that.del(key);
                 }, milliseconds);
             }
@@ -242,7 +340,11 @@
 
     // Get the time to live for a key in milliseconds.
     redismock.pttl = function (key, callback) {
-        return cb(callback)(new Error("UNIMPLEMENTED"));
+        var now = new Date();
+        if (timeouts[key]) {
+            return cb(callback)(null, timeouts[key].end.getTime() - now.getTime());
+        }
+        return cb(callback)(null, this.exists(key) ? -1 : -2);
     };
 
     // Return a random key from the keyspace.
@@ -327,7 +429,11 @@
 
     // Get the time to live for a key.
     redismock.ttl = function (key, callback) {
-        return cb(callback)(new Error('UNIMPLEMENTED'));
+        var now = new Date();
+        if (timeouts[key]) {
+            return cb(callback)(null, (timeouts[key].end.getTime() - now.getTime())/1000);
+        }
+        return cb(callback)(null, this.exists(key) ? -1 : -2);
     };
 
     // Determine the type stored at key.
@@ -438,6 +544,7 @@
     };
 
     redismock.set = function (key, value, callback) {
+        var that = this;
         var nx = false, xx = false, ex = -1, px = -1;
         var g = gather(this.set).apply(this, arguments);
         callback = g.callback;
@@ -456,12 +563,12 @@
             }
         });
         if (nx) {
-            if (this.exists(key)) {
+            if (that.exists(key)) {
                 return cb(callback)(null, null);
             }
         }
         if (xx) {
-            if (!this.exists(key)) {
+            if (!that.exists(key)) {
                 return cb(callback)(null, null);
             }
         }
@@ -1669,7 +1776,31 @@
     };
 
     redismock.dbsize = function (callback) {
-        return cb(callback)(new Error('UNIMPLEMENTED'));
+        var count = 0, key;
+        for (key in cache) {
+            if (key === sets || key === zsets || key === hashes) {
+                continue;
+            }
+            if (cache.hasOwnProperty(key)) {
+                count += 1;
+            }
+        }
+        for (key in cache[sets]) {
+            if (cache[sets].hasOwnProperty(key)) {
+                count += 1;
+            }
+        }
+        for (key in cache[zsets]) {
+            if (cache[zsets].hasOwnProperty(key)) {
+                count += 1;
+            }
+        }
+        for (key in cache[hashes]) {
+            if (cache[hashes].hasOwnProperty(key)) {
+                count += 1;
+            }
+        }
+        return cb(callback)(null, count);
     };
 
     redismock.debug_object = function (key, callback) {
@@ -1692,7 +1823,9 @@
         watchers = {};
         mySubscriptions = {};
         Object.keys(timeouts).forEach(function (key) {
-            clearTimeout(timeouts[key]);
+            if (timeouts[key]) {
+                clearTimeout(timeouts[key].timeout);
+            }
         });
         timeouts = {};
         return cb(callback)(null, 'OK');
@@ -1735,7 +1868,17 @@
     };
 
     redismock.time = function (callback) {
-        return cb(callback)(new Error('UNIMPLEMENTED'));
+        var now = new Date();
+        var epoch = now.getTime();
+        var us;
+        if (root.performance && root.performance.now) {
+            now = root.performance.now();
+            us = (now - Math.floor(now)) * 100000;
+        }
+        else if (process && process.hrtime) {
+            us = process.hrtime()[1] / 1000;
+        }
+        return cb(callback)(null, [epoch, us]); 
     };
 
     // Modifications
