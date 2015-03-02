@@ -45,11 +45,11 @@
   <div class="row">
     <div class="col-md-6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">74.08</p>
+      <p class="stat">72.74</p>
     </div>
     <div class="col-md-6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">1772</p>
+      <p class="stat">1989</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="col-md-6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">201.66</p>
+      <p class="stat">191.17</p>
     </div>
     <div class="col-md-6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">21.73</p>
+      <p class="stat">24.18</p>
     </div>
   </div>
 </div>
@@ -129,6 +129,11 @@
         };
     }
 
+    // Create the process variable if it does not exist.
+    if (typeof process === &#039;undefined&#039;) {
+        var process = {};
+    }
+
     // The database.
     var cache = {};
     var timeouts = {};
@@ -143,6 +148,70 @@
 
     // Utils
     // -----
+
+    // From https://gist.github.com/Breton/2699916
+    String.prototype.escape = function () {
+        var escapable = /[.\\\&quot;\x00-\x1f\x7f-\x9f\u00ad\u0600-\u0604\u070f\u17b4\u17b5\u200c-\u200f\u2028-\u202f\u2060-\u206f\ufeff\ufff0-\uffff]/g;
+        var meta;
+        /* jshint ignore:start */
+        meta = { // table of character substitutions
+            &#039;\b&#039;: &#039;\\b&#039;,
+            &#039;\t&#039;: &#039;\\t&#039;,
+            &#039;\n&#039;: &#039;\\n&#039;,
+            &#039;\f&#039;: &#039;\\f&#039;,
+            &#039;\r&#039;: &#039;\\r&#039;,
+            &#039;\.&#039;: &#039;\\.&#039;,
+            &#039;&quot;&#039;: &#039;\\&quot;&#039;,
+            &#039;\\&#039;: &#039;\\\\&#039;
+        };
+        /* jshint ignore:end */
+        function escapechar(a) {
+            var c = meta[a];
+            return typeof c === &#039;string&#039; ? c : &#039;\\u&#039; + (&#039;0000&#039; + a.charCodeAt(0).toString(16)).slice(-4);
+        }
+        return this.replace(escapable, escapechar);
+    };
+    //Translate a shell PATTERN to a regular expression.
+    function translate(pat) {
+        //There is no way to quote meta-characters.
+        var i=0, j, n = pat.length || 0, res, c, stuff;
+        res = &#039;^&#039;;
+        while (i &lt; n) {
+            c = pat[i];
+            i = i + 1;
+            if (c === &#039;*&#039;) {
+                res = res + &#039;.*&#039;;
+            } else if (c === &#039;?&#039;) {
+                res = res + &#039;.&#039;;
+            } else if (c === &#039;[&#039;) {
+                j = i;
+                if (j &lt; n &amp;&amp; pat[j] === &#039;!&#039;) {
+                    j = j + 1;
+                }
+                if (j &lt; n &amp;&amp; pat[j] === &#039;]&#039;) {
+                    j = j + 1;
+                }
+                while (j &lt; n &amp;&amp; pat[j] !== &#039;]&#039;) {
+                    j = j + 1;
+                }
+                if (j &gt;= n) {
+                    res = res + &#039;\\[&#039;;
+                } else {
+                    stuff = pat.slice(i, j).replace(&#039;\\&#039;, &#039;\\\\&#039;);
+                    i = j + 1;
+                    if (stuff[0] === &#039;!&#039;) {
+                        stuff = &#039;^&#039; + stuff.slice(1);
+                    } else if (stuff[0] === &#039;^&#039;) {
+                        stuff = &#039;\\&#039; + stuff;
+                    }
+                    res = res + &#039;[&#039; + stuff + &#039;]&#039;;
+                }
+            } else {
+                res = res + (c).escape();
+            }
+        }
+        return res + &#039;$&#039;;
+    }
 
     var cb = function (callback, context) {
         return function () {
@@ -212,17 +281,26 @@
                     }
                     if (typeof this._ifex === &#039;function&#039;) {
                         ret = this._ifex.call(that);
+                        if (ret &amp;&amp; ret instanceof Error) {
+                            return cb(callback)(ret);
+                        }
                     }
                 }
                 else {
                     if (typeof this._ifnx === &#039;function&#039;) {
                         ret = this._ifnx.call(that);
+                        if (ret &amp;&amp; ret instanceof Error) {
+                            return cb(callback)(ret);
+                        }
                     }
                 }
                 if (typeof this._then === &#039;function&#039;) {
                     ret = this._then.call(that);
+                    if (ret &amp;&amp; ret instanceof Error) {
+                        return cb(callback)(ret);
+                    }
                 }
-                return ret;
+                return cb(callback)(null, ret);
             }
         };
     };
@@ -279,7 +357,40 @@
 
     // Find all the keys matching a given pattern.
     redismock.keys = function (pattern, callback) {
-        return cb(callback)(new Error(&quot;UNIMPLEMENTED&quot;));
+        var keys = [], key;
+        var regex = new RegExp(translate(pattern));
+        for (key in cache) {
+            if (key === sets || key === zsets || key === hashes) {
+                continue;
+            }
+            if (cache.hasOwnProperty(key)) {
+                if (key.match(regex) !== null) {
+                    keys.push(key);
+                }
+            }
+        }
+        for (key in cache[sets]) {
+            if (cache[sets].hasOwnProperty(key)) {
+                if (key.match(regex) !== null) {
+                    keys.push(key);
+                }
+            }
+        }
+        for (key in cache[zsets]) {
+            if (cache[zsets].hasOwnProperty(key)) {
+                if (key.match(regex) !== null) {
+                    keys.push(key);
+                }
+            }
+        }
+        for (key in cache[hashes]) {
+            if (cache[hashes].hasOwnProperty(key)) {
+                if (key.match(regex) !== null) {
+                    keys.push(key);
+                }
+            }
+        }
+        return cb(callback)(null, keys);
     };
 
     // Atomically transfer a key from a Redis instance to another one.
@@ -300,7 +411,7 @@
     // Remove the expiration from a key.
     redismock.persist = function (key, callback) {
         if (this.exists(key) &amp;&amp; key in timeouts) {
-            clearTimeout(timeouts[key]);
+            clearTimeout(timeouts[key].timeout);
             return cb(callback)(null, 1);
         }
         return cb(callback)(null, 0);
@@ -311,13 +422,17 @@
         var that = this;
         if (this.exists(key)) {
             if (key in timeouts) {
-                clearTimeout(timeouts[key]);
+                clearTimeout(timeouts[key].timeout);
             }
             if (milliseconds &lt;= 0) {
                 this.del(key);
             }
             else {
-                timeouts[key] = setTimeout(function () {
+                timeouts[key] = {};
+                timeouts[key].start = new Date();
+                timeouts[key].end = (new Date(timeouts[key].start.getTime() + milliseconds));
+                timeouts[key].timeout = setTimeout(function () {
+                    timeouts[key] = undefined;
                     that.del(key);
                 }, milliseconds);
             }
@@ -334,7 +449,11 @@
 
     // Get the time to live for a key in milliseconds.
     redismock.pttl = function (key, callback) {
-        return cb(callback)(new Error(&quot;UNIMPLEMENTED&quot;));
+        var now = new Date();
+        if (timeouts[key]) {
+            return cb(callback)(null, timeouts[key].end.getTime() - now.getTime());
+        }
+        return cb(callback)(null, this.exists(key) ? -1 : -2);
     };
 
     // Return a random key from the keyspace.
@@ -419,7 +538,11 @@
 
     // Get the time to live for a key.
     redismock.ttl = function (key, callback) {
-        return cb(callback)(new Error(&#039;UNIMPLEMENTED&#039;));
+        var now = new Date();
+        if (timeouts[key]) {
+            return cb(callback)(null, (timeouts[key].end.getTime() - now.getTime())/1000);
+        }
+        return cb(callback)(null, this.exists(key) ? -1 : -2);
     };
 
     // Determine the type stored at key.
@@ -455,7 +578,17 @@
     // String Commands
 
     redismock.append = function (key, value, callback) {
-        return cb(callback)(new Error(&#039;UNIMPLEMENTED&#039;));
+        return this
+            .ifType(key, &#039;string&#039;, callback)
+            .thenex(function () {
+                cache[key] += value;
+                return null;
+            })
+            .thennx(function () {
+                return this.set(key, value);
+            })
+            .then(function () { return cache[key].length; })
+            .end();
     };
 
     redismock.bitcount = function (key, callback) {
@@ -512,15 +645,48 @@
     };
 
     redismock.mget = function (key, callback) {
-        return cb(callback)(new Error(&#039;UNIMPLEMENTED&#039;));
+        var g = gather(this.mget).apply(this, arguments);
+        callback = g.callback;
+        return cb(callback)(null, g.list.map(function (k) {
+            return cache[k] || null;
+        }));
     };
 
     redismock.mset = function (key, value, callback) {
-        return cb(callback)(new Error(&#039;UNIMPLEMENTED&#039;));
+        var kvs = [];
+        var that = this;
+        var g = gather(this.mset, 2).apply(this, arguments);
+        callback = g.callback;
+        g.list.forEach(function (opt, index) {
+            if (index % 2 === 0) {
+                kvs.push([opt, g.list[index + 1]]);
+            }
+        });
+        kvs.forEach(function (kv) {
+            that.set(kv[0], kv[1]);
+        });
+        return cb(callback)(null, &#039;OK&#039;);
     };
 
     redismock.msetnx = function (key, value, callback) {
-        return cb(callback)(new Error(&#039;UNIMPLEMENTED&#039;));
+        var kvs = [];
+        var that = this;
+        var g = gather(this.msetnx, 2).apply(this, arguments);
+        callback = g.callback;
+        g.list.forEach(function (opt, index) {
+            if (index % 2 === 0) {
+                kvs.push([opt, g.list[index + 1]]);
+            }
+        });
+        if (kvs.some(function (kv) {
+            return that.exists(kv[0]);
+        })) {
+            return cb(callback)(null, 0);
+        }
+        kvs.forEach(function (kv) {
+            that.set(kv[0], kv[1]);
+        });
+        return cb(callback)(null, 1);
     };
 
     redismock.psetex = function (key, milliseconds, value, callback) {
@@ -595,8 +761,8 @@
         }
         return this
             .ifType(key, &#039;string&#039;, callback)
-            .thenex(function () { return cb(callback)(null, cache[key].length); })
-            .thennx(function () { return cb(callback)(null, 0); })
+            .thenex(function () { return cache[key].length; })
+            .thennx(function () { return 0; })
             .end();
     };
 
@@ -627,7 +793,7 @@
                     elem = cache[key][cache[key].length + i];
                 }
             })
-            .then(function () { return cb(callback)(null, elem); })
+            .then(function () { return elem; })
             .end();
     };
 
@@ -643,27 +809,27 @@
                     else if (beforeafter === &#039;after&#039;) {
                         cache[key].splice(idx + 1, 0, value);
                     }
-                    return cb(callback)(null, cache[key].length);
+                    return cache[key].length;
                 }
-                return cb(callback)(null, -1);
+                return -1;
             })
-            .thennx(function () { return cb(callback)(null, 0); })
+            .thennx(function () { return 0; })
             .end();
     };
 
     redismock.llen = function (key, callback) {
         return this
             .ifType(key, &#039;list&#039;, callback)
-            .thenex(function () { return cb(callback)(null, cache[key].length); })
-            .thennx(function () { return cb(callback)(null, 0); })
+            .thenex(function () { return cache[key].length; })
+            .thennx(function () { return 0; })
             .end();
     };
 
     redismock.lpop = function (key, callback) {
         return this
             .ifType(key, &#039;list&#039;, callback)
-            .thenex(function () { return cb(callback)(null, cache[key].shift()); })
-            .thennx(function () { return cb(callback)(null, null); })
+            .thenex(function () { return cache[key].shift(); })
+            .thennx(function () { return null; })
             .end();
     };
 
@@ -675,7 +841,7 @@
             .thennx(function () { cache[key] = []; })
             .then(function () {
                 cache[key] = g.list.concat(cache[key]);
-                return cb(callback)(null, cache[key].length);
+                return cache[key].length;
             })
             .end();
     };
@@ -685,9 +851,9 @@
             .ifType(key, &#039;list&#039;, callback)
             .thenex(function () {
                 cache[key].unshift(element);
-                return cb(callback)(null, cache[key].length);
+                return cache[key].length;
             })
-            .thennx(function () { return cb(callback)(null, 0); })
+            .thennx(function () { return 0; })
             .end();
     };
 
@@ -716,7 +882,7 @@
                     l = cache[key].slice(start, end + 1);
                 }
             })
-            .then(function () { return cb(callback)(null, l); })
+            .then(function () { return l; })
             .end();
     };
 
@@ -738,10 +904,10 @@
                     }
                 }
                 if (!cache[key].length) {
-                    delete cache[key];
+                    this.del(key);
                 }
             })
-            .then(function () { return cb(callback)(null, cnt); })
+            .then(function () { return cnt; })
             .end();
     };
 
@@ -750,12 +916,12 @@
             .ifType(key, &#039;list&#039;, callback)
             .thenex(function () { 
                 if (index &gt;= cache[key].length) {
-                    return cb(callback)(new Error(&#039;ERR index out of range&#039;));
+                    return new Error(&#039;ERR index out of range&#039;);
                 }
                 cache[key][index] = element;
-                return cb(callback)(null, &#039;OK&#039;);
+                return &#039;OK&#039;;
             })
-            .thennx(function () { return cb(callback)(new Error(&#039;ERR no such key&#039;)); })
+            .thennx(function () { return new Error(&#039;ERR no such key&#039;); })
             .end();
     };
 
@@ -785,9 +951,9 @@
             })
             .then(function () { 
                 if (this.exists(key) &amp;&amp; !cache[key].length) {
-                    delete cache[key];
+                    this.del(key);
                 }
-                return cb(callback)(null, &#039;OK&#039;);
+                return &#039;OK&#039;;
             })
             .end();
     };
@@ -795,8 +961,8 @@
     redismock.rpop = function (key, callback) {
         return this
             .ifType(key, &#039;list&#039;, callback)
-            .thenex(function () { return cb(callback)(null, cache[key].pop()); })
-            .thennx(function () { return cb(callback)(null, null); })
+            .thenex(function () { return cache[key].pop(); })
+            .thennx(function () { return null; })
             .end();
     };
 
@@ -823,7 +989,7 @@
             .thennx(function () { cache[key] = []; })
             .then(function () {
                 cache[key] = cache[key].concat(g.list);
-                return cb(callback)(null, cache[key].length);
+                return cache[key].length;
             })
             .end();
     };
@@ -833,9 +999,9 @@
             .ifType(key, &#039;list&#039;, callback)
             .thenex(function () {
                 cache[key].push(element);
-                return cb(callback)(null, cache[key].length);
+                return cache[key].length;
             })
-            .thennx(function () { return cb(callback)(null, 0); })
+            .thennx(function () { return 0; })
             .end();
     };
 
@@ -860,7 +1026,7 @@
                         count += 1;
                     }
                 });
-                return cb(callback)(null, count);
+                return count;
             })
             .end();
     };
@@ -868,8 +1034,8 @@
     redismock.scard = function (key, callback) {
         return this
             .ifType(key, &#039;set&#039;, callback)
-            .thenex(function () { return cb(callback)(null, Object.keys(cache[sets][key]).length); })
-            .thennx(function () { return cb(callback)(null, 0); })
+            .thenex(function () { return Object.keys(cache[sets][key]).length; })
+            .thennx(function () { return 0; })
             .end();
     };
 
@@ -892,16 +1058,16 @@
     redismock.sismember = function (key, member, callback) {
         return this
             .ifType(key, &#039;set&#039;, callback)
-            .thenex(function () { return cb(callback)(null, member in cache[sets][key] ? 1 : 0); })
-            .thennx(function () { return cb(callback)(null, 0); })
+            .thenex(function () { return member in cache[sets][key] ? 1 : 0; })
+            .thennx(function () { return 0; })
             .end();
     };
 
     redismock.smembers = function (key, callback) {
         return this
             .ifType(key, &#039;set&#039;, callback)
-            .thenex(function () { return cb(callback)(null, Object.keys(cache[sets][key])); })
-            .thennx(function () { return cb(callback)(null, []); })
+            .thenex(function () { return Object.keys(cache[sets][key]); })
+            .thennx(function () { return []; })
             .end();
     };
 
@@ -947,18 +1113,18 @@
                 var k = Object.keys(cache[sets][key]);
                 var idx, randos;
                 if (count === 0) {
-                    return cb(callback)(null, null);
+                    return null;
                 }
                 if (count) {
                     randos = [];
                     for (idx = 0; idx &lt; Math.abs(count); idx += 1) {
-                        randos.push(cache[sets][key][k[Math.floor(Math.random() &amp; k.length)]]);
+                        randos.push(cache[sets][key][k[Math.floor(Math.random() * k.length)]]);
                     }
-                    return cb(callback)(null, randos);
+                    return randos;
                 }
-                return cb(callback)(null, cache[sets][key][k[Math.floor(Math.random() * k.length)]]);
+                return cache[sets][key][k[Math.floor(Math.random() * k.length)]];
             })
-            .thennx(function () { return cb(callback)(null, null); })
+            .thennx(function () { return null; })
             .end();
     };
 
@@ -977,10 +1143,10 @@
                     }
                 });
                 if (!Object.keys(cache[sets][key]).length) {
-                    delete cache[sets][key];
+                    this.del(key);
                 }
             })
-            .then(function () { return cb(callback)(null, count); })
+            .then(function () { return count; })
             .end();
     };
 
@@ -1046,7 +1212,7 @@
                             count += 1;
                         }
                     });
-                return cb(callback)(null, count);
+                return count;
             })
             .end();
     };
@@ -1058,9 +1224,9 @@
                 var count = Object.keys(cache[zsets][key]).reduce(function (cnt, score) {
                     return cnt + cache[zsets][key][score].length;
                 }, 0);
-                return cb(callback)(null, count); 
+                return count; 
             })
-            .thennx(function () { return cb(callback)(null, 0); })
+            .thennx(function () { return 0; })
             .end();
     };
 
@@ -1079,9 +1245,9 @@
                     .reduce(function (cnt, score) {
                         return cnt + cache[zsets][key][score].length;
                     }, 0);
-                return cb(callback)(null, count);
+                return count;
             })
-            .thennx(function () { return cb(callback)(null, 0); })
+            .thennx(function () { return 0; })
             .end();
     };
 
@@ -1135,9 +1301,9 @@
                         }
                         return false;
                     });
-                return cb(callback)(null, arr);
+                return arr;
             })
-            .thennx(function () { return cb(callback)(null, []); })
+            .thennx(function () { return []; })
             .end();
     };
 
@@ -1230,9 +1396,9 @@
                     }
                     return false;
                 });
-                return cb(callback)(null, arr);
+                return arr;
             })
-            .thennx(function () { return cb(callback)(null, []); })
+            .thennx(function () { return []; })
             .end();
     };
 
@@ -1255,11 +1421,11 @@
                         return false;
                     });
                 if (!found) {
-                    return cb(callback)(null, null);
+                    return null;
                 }
-                return cb(callback)(null, idx);
+                return idx;
             })
-            .thennx(function () { return cb(callback)(null, null); })
+            .thennx(function () { return null; })
             .end();
     };
 
@@ -1279,13 +1445,16 @@
                                 cache[zsets][key][score].splice(idx, 1);
                                 count += 1;
                             }
+                            if (!cache[zsets][key][score]) {
+                                delete cache[zsets][key][score];
+                            }
                         });
                 });
                 if (Object.keys(cache[zsets][key]).length === 0) {
-                    delete cache[zsets][key];
+                    this.del(key);
                 }
             })
-            .then(function () { return cb(callback)(null, count); })
+            .then(function () { return count; })
             .end();
     };
 
@@ -1338,26 +1507,26 @@
                     }
                 });
                 if (Object.keys(cache[hashes][key]).length === 0) {
-                    delete cache[hashes][key];
+                    this.del(key);
                 }
             })
-            .then(function () { return cb(callback)(null, count); })
+            .then(function () { return count; })
             .end();
     };
     
     redismock.hexists = function (key, field,  callback) {
         return this
             .ifType(key, &#039;hash&#039;, callback)
-            .thenex(function () { return cb(callback)(null, field in cache[hashes][key] ? 1 : 0); })
-            .thennx(function () { return cb(callback)(null, 0); })
+            .thenex(function () { return field in cache[hashes][key] ? 1 : 0; })
+            .thennx(function () { return 0; })
             .end();
     };
 
     redismock.hget = function (key, field, callback) {
         return this
             .ifType(key, &#039;hash&#039;, callback)
-            .thenex(function () { return cb(callback)(null, cache[hashes][key][field]); })
-            .thennx(function () { return cb(callback)(null, null); })
+            .thenex(function () { return cache[hashes][key][field]; })
+            .thennx(function () { return null; })
             .end();
     };
 
@@ -1373,9 +1542,9 @@
                     .reduce(function (prev, fv) {
                         return prev.concat(fv);
                     }, []);
-                return cb(callback)(null, arr);
+                return arr;
             })
-            .thennx(function () { return cb(callback)(null, []); })
+            .thennx(function () { return []; })
             .end();
     };
 
@@ -1390,8 +1559,8 @@
     redismock.hkeys = function (key, callback) {
         return this
             .ifType(key, &#039;hash&#039;, callback)
-            .thenex(function () { return cb(callback)(null, Object.keys(cache[hashes][key])); })
-            .thennx(function () { return cb(callback)(null, []); })
+            .thenex(function () { return Object.keys(cache[hashes][key]); })
+            .thennx(function () { return []; })
             .end();
     };
 
@@ -1414,9 +1583,9 @@
                     .map(function (f) {
                         return cache[hashes][key][f];
                     });
-                return cb(callback)(null, arr);
+                return arr;
             })
-            .thennx(function () { return cb(callback)(null, []); })
+            .thennx(function () { return []; })
             .end();
     };
 
@@ -1442,7 +1611,7 @@
                     .forEach(function (fv) {
                         that.hset(key, fv[0], fv[1]);
                     });
-                return cb(callback)(null, &#039;OK&#039;);
+                return &#039;OK&#039;;
             })
             .end();
     };
@@ -1465,7 +1634,7 @@
             })
             .then(function () { 
                 cache[hashes][key][field] = value;
-                return cb(callback)(null, ret); 
+                return ret; 
             })
             .end();
     };
@@ -1489,7 +1658,7 @@
                 if (ret === 1) {
                     cache[hashes][key][field] = value;
                 }
-                return cb(callback)(null, ret); 
+                return ret; 
             })
             .end();
     };
@@ -1509,7 +1678,7 @@
                         return cache[hashes][key][field];
                     });
             })
-            .then(function () { return cb(callback)(null, vals); })
+            .then(function () { return vals; })
             .end();
     };
 
@@ -1761,7 +1930,31 @@
     };
 
     redismock.dbsize = function (callback) {
-        return cb(callback)(new Error(&#039;UNIMPLEMENTED&#039;));
+        var count = 0, key;
+        for (key in cache) {
+            if (key === sets || key === zsets || key === hashes) {
+                continue;
+            }
+            if (cache.hasOwnProperty(key)) {
+                count += 1;
+            }
+        }
+        for (key in cache[sets]) {
+            if (cache[sets].hasOwnProperty(key)) {
+                count += 1;
+            }
+        }
+        for (key in cache[zsets]) {
+            if (cache[zsets].hasOwnProperty(key)) {
+                count += 1;
+            }
+        }
+        for (key in cache[hashes]) {
+            if (cache[hashes].hasOwnProperty(key)) {
+                count += 1;
+            }
+        }
+        return cb(callback)(null, count);
     };
 
     redismock.debug_object = function (key, callback) {
@@ -1784,7 +1977,9 @@
         watchers = {};
         mySubscriptions = {};
         Object.keys(timeouts).forEach(function (key) {
-            clearTimeout(timeouts[key]);
+            if (timeouts[key]) {
+                clearTimeout(timeouts[key].timeout);
+            }
         });
         timeouts = {};
         return cb(callback)(null, &#039;OK&#039;);
@@ -1827,7 +2022,29 @@
     };
 
     redismock.time = function (callback) {
-        return cb(callback)(new Error(&#039;UNIMPLEMENTED&#039;));
+        var now = new Date();
+        var epoch = now.getTime();
+        var us;
+        if (root.performance) {
+            if (root.performance.now) {
+                now = root.performance.now();
+                us = (now - Math.floor(now)) * 100000;
+            }
+            else if (root.performance.webkitNow) {
+                now = root.performance.webkitNow();
+                us = (now - Math.floor(now)) * 100000;
+            }
+            else {
+                us = 0;
+            }
+        }
+        else if (process &amp;&amp; process.hrtime) {
+            us = process.hrtime()[1] / 1000;
+        }
+        else {
+            us = 0;
+        }
+        return cb(callback)(null, [epoch, us]); 
     };
 
     // Modifications
