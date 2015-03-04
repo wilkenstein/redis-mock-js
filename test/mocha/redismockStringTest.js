@@ -53,11 +53,181 @@
     });
 
     describe('bitcount', function () {
-        xit('should bitcount');
+        it('should return an error for a key that does not map to string', function (done) {
+            var k = randkey();
+            var v = 'value';
+            redismock.lpush(k, v);
+            expect(redismock.bitcount(k)).to.be.an.instanceof(Error);
+            redismock.bitcount(k, 2, 3, function (err, reply) {
+                expect(err).to.exist;
+                expect(reply).to.not.exist;
+                expect(err).to.be.an.instanceof(Error);
+                expect(err.message.indexOf('WRONGTYPE')).to.be.above(-1);
+                done();
+            });
+        });
+        it('should return 0 for a key that does not exist', function (done) {
+            var k = randkey();
+            var v = 'value';
+            expect(redismock.bitcount(k)).to.equal(0);
+            redismock.bitcount(k, 2, 3, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal(0);
+                done();
+            });
+        });
+        it('should return the bitcount for a key', function (done) {
+            var k = randkey();
+            var v0 = '000', v1 = '111', v2 = '34?';
+            var b0 = 2*3, b1 = 3*3, b2 = 4 + 3 + 6;
+            redismock.set(k, v0);
+            expect(redismock.bitcount(k)).to.equal(b0);
+            redismock.set(k, v1);
+            expect(redismock.bitcount(k)).to.equal(b1);
+            redismock.set(k, v2);
+            redismock.bitcount(k, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal(b2);
+                done();
+            });
+        });
+        it('should return the bitcount for a key in a given range', function (done) {
+            var k = randkey();
+            var v0 = '000', v1 = '111', v2 = '34?';
+            var b0 = 2*3, b1 = 3*3, b2 = 4 + 3 + 6;
+            redismock.set(k, v0);
+            expect(redismock.bitcount(k, 0, 0)).to.equal(2);
+            expect(redismock.bitcount(k, 1, 1)).to.equal(2);
+            expect(redismock.bitcount(k, 2, 2)).to.equal(2);
+            expect(redismock.bitcount(k, 0, 1)).to.equal(2*2);
+            expect(redismock.bitcount(k, 1, 2)).to.equal(2*2);
+            expect(redismock.bitcount(k, 2, 3)).to.equal(2);
+            expect(redismock.bitcount(k, 0, 2)).to.equal(b0);
+            expect(redismock.bitcount(k, 0, 5)).to.equal(b0);
+            redismock.set(k, v2);
+            expect(redismock.bitcount(k, 0, 0)).to.equal(4);
+            expect(redismock.bitcount(k, 1, 1)).to.equal(3);
+            expect(redismock.bitcount(k, 2, 2)).to.equal(6);
+            expect(redismock.bitcount(k, 0, 1)).to.equal(4 + 3);
+            expect(redismock.bitcount(k, 1, 2)).to.equal(3 + 6);
+            expect(redismock.bitcount(k, 0, 2)).to.equal(b2);
+            redismock.bitcount(k, 0, 5, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal(b2);
+                done();
+            });
+        });
+        xit('should return the bitcount for a key in a given range with negative indices');
     });
 
     describe('bitop', function () {
-        xit('should bitop');
+        it('should return an error for a key that does not map to string', function (done) {
+            var dk = randkey(), k1 = randkey(), k2 = randkey();
+            var v = 'value';
+            redismock.lpush(k2, v);
+            expect(redismock.bitop('and', dk, k1, k2)).to.be.an.instanceof(Error);
+            redismock.bitop('or', dk, k2, k1, function (err, reply) {
+                expect(err).to.exist;
+                expect(reply).to.not.exist;
+                expect(err).to.be.an.instanceof(Error);
+                expect(err.message.indexOf('WRONGTYPE')).to.be.above(-1);
+                done();
+            });
+        });
+        it('should return 0 if none of the keys exist', function (done) {
+            var dk = randkey(), k1 = randkey(), k2 = randkey();
+            var v = 'value';
+            expect(redismock.bitop('and', dk, k1, k2)).to.equal(0);
+            expect(redismock.get(dk)).to.equal('');
+            redismock.bitop('or', dk, k2, k1, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal(0);
+                expect(redismock.get(dk)).to.equal('');
+                done();
+            });
+        });
+        it('should do an AND operation against strings, store the result, and return the string length', function (done) {
+            var dk = randkey(), k1 = randkey(), k2 = randkey(), k3 = randkey();
+            var v1 = '111', v2 = '222', v3 = '333';
+            redismock.mset(k1, v1, k2, v2, k3, v3);
+            expect(redismock.bitop('and', dk, k1, k2)).to.equal(3);
+            expect(redismock.get(dk)).to.equal('000');
+            redismock.bitop('and', dk, k2, k3, k1, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal(3);
+                expect(redismock.get(dk)).to.equal('000');
+                done();
+            });
+        });
+        it('should do an OR operation against strings, store the result, and return the string length', function (done) {
+            var dk = randkey(), k1 = randkey(), k2 = randkey(), k3 = randkey();
+            var v1 = '111', v2 = '222', v3 = '333';
+            redismock.mset(k1, v1, k2, v2, k3, v3);
+            expect(redismock.bitop('or', dk, k1, k2)).to.equal(3);
+            expect(redismock.get(dk)).to.equal('333');
+            redismock.bitop('or', dk, k2, k1, k3, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal(3);
+                expect(redismock.get(dk)).to.equal('333');
+                done();
+            });
+        });
+        it('should do an XOR operation against strings, store the result, and return the string length', function (done) {
+            var dk = randkey(), k1 = randkey(), k2 = randkey(), k3 = randkey();
+            var v1 = '111', v2 = '222', v3 = '333';
+            redismock.mset(k1, v1, k2, v2, k3, v3);
+            expect(redismock.bitop('xor', dk, k1, k2)).to.equal(3);
+            expect(redismock.get(dk)).to.equal('\3\3\3');
+            redismock.bitop('xor', dk, k2, k1, k3, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal(3);
+                expect(redismock.get(dk)).to.equal('000');
+                done();
+            });
+        });
+        it('should do a NOT operation against a string, store the result, and return the string length', function (done) {
+            var dk = randkey(), k1 = randkey();
+            var v1 = '123', v2 = '321';
+            redismock.set(k1, v1);
+            expect(redismock.bitop('not', dk, k1)).to.equal(3);
+            var gdk = redismock.get(dk);
+            expect(gdk.charCodeAt(0)).to.equal(65536 - 50);
+            expect(gdk.charCodeAt(1)).to.equal(65536 - 51);
+            expect(gdk.charCodeAt(2)).to.equal(65536 - 52);
+            redismock.set(k1, v2);
+            redismock.bitop('not', dk, k1, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal(3);
+                var gdk = redismock.get(dk);
+                expect(gdk.charCodeAt(2)).to.equal(65536 - 50);
+                expect(gdk.charCodeAt(1)).to.equal(65536 - 51);
+                expect(gdk.charCodeAt(0)).to.equal(65536 - 52);
+                done();
+            });
+        });
+        it('should do a NOT operation against only the first string regardless of how many keys are given', function (done) {
+            var dk = randkey(), k1 = randkey(), k2 = randkey(), k3 = randkey();
+            var v1 = '123', v2 = '321', v3 = '213';
+            redismock.mset(k1, v1, k2, v2, k3, v3);
+            expect(redismock.bitop('not', dk, k1, k2, k3)).to.equal(3);
+            var gdk = redismock.get(dk);
+            expect(gdk.charCodeAt(0)).to.equal(65536 - 50);
+            expect(gdk.charCodeAt(1)).to.equal(65536 - 51);
+            expect(gdk.charCodeAt(2)).to.equal(65536 - 52);
+            redismock.bitop('not', dk, k2, k3, k1, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal(3);
+                var gdk = redismock.get(dk);
+                expect(gdk.charCodeAt(2)).to.equal(65536 - 50);
+                expect(gdk.charCodeAt(1)).to.equal(65536 - 51);
+                expect(gdk.charCodeAt(0)).to.equal(65536 - 52);
+                done();
+            });
+        });
+        xit('should zero-pad out differently-lengthed strings', function (done) {
+        });
+        xit('should zero-pad non-existent keys out', function (done) {
+        });
     });
 
     describe('bitpos', function () {
@@ -106,11 +276,159 @@
     });
 
     describe('getbit', function () {
-        xit('should getbit');
+        it('should return an error for a key that does not map to string', function (done) {
+            var k = randkey();
+            var v = 'value';
+            redismock.lpush(k, v);
+            expect(redismock.getbit(k, 0)).to.be.an.instanceof(Error);
+            redismock.getbit(k, 9, function (err, reply) {
+                expect(err).to.exist;
+                expect(reply).to.not.exist;
+                expect(err).to.be.an.instanceof(Error);
+                expect(err.message.indexOf('WRONGTYPE')).to.be.above(-1);
+                done();
+            });
+        });
+        it('should return 0 for a key that does not exist', function (done) {
+            var k = randkey();
+            var v = 'value';
+            expect(redismock.getbit(k, 0)).to.equal(0);
+            redismock.getbit(k, 9, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal(0);
+                done();
+            });
+        });
+        it('should return 0 for a offset out of bounds', function (done) {
+            var k = randkey();
+            var v = 'value';
+            redismock.set(k, v);
+            expect(redismock.getbit(k, v.length*8 + 1)).to.equal(0);
+            redismock.getbit(k, v.length*8 + 10, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal(0);
+                done();
+            });
+        });
+        it('should return the bit at the offset', function (done) {
+            var k = randkey();
+            var v = '12?';
+            redismock.set(k, v);
+            expect(redismock.getbit(k, 0)).to.equal(1);
+            expect(redismock.getbit(k, 1)).to.equal(0);
+            expect(redismock.getbit(k, 2)).to.equal(0);
+            expect(redismock.getbit(k, 3)).to.equal(0);
+            expect(redismock.getbit(k, 4)).to.equal(1);
+            expect(redismock.getbit(k, 5)).to.equal(1);
+            expect(redismock.getbit(k, 6)).to.equal(0);
+            expect(redismock.getbit(k, 7)).to.equal(0);
+            expect(redismock.getbit(k, 8)).to.equal(0);
+            expect(redismock.getbit(k, 9)).to.equal(1);
+            expect(redismock.getbit(k, 10)).to.equal(0);
+            expect(redismock.getbit(k, 11)).to.equal(0);
+            expect(redismock.getbit(k, 12)).to.equal(1);
+            expect(redismock.getbit(k, 13)).to.equal(1);
+            expect(redismock.getbit(k, 14)).to.equal(0);
+            expect(redismock.getbit(k, 15)).to.equal(0);
+            expect(redismock.getbit(k, 16)).to.equal(1);
+            expect(redismock.getbit(k, 17)).to.equal(1);
+            expect(redismock.getbit(k, 18)).to.equal(1);
+            redismock.getbit(k, 19, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal(1);
+                expect(redismock.getbit(k, 20)).to.equal(1);
+                expect(redismock.getbit(k, 21)).to.equal(1);
+                expect(redismock.getbit(k, 23)).to.equal(0);
+                expect(redismock.getbit(k, 24)).to.equal(0);
+                expect(redismock.getbit(k, 25)).to.equal(0);
+                done();
+            });
+        });
     });
 
     describe('getrange', function () {
-        xit('should getrange');
+        it('should return an error for a key that does not map to string', function (done) {
+            var k = randkey();
+            var v = 'value';
+            redismock.lpush(k, v);
+            expect(redismock.getrange(k, 0, -1)).to.be.an.instanceof(Error);
+            redismock.getrange(k, 1, 2, function (err, reply) {
+                expect(err).to.exist;
+                expect(reply).to.not.exist;
+                expect(err).to.be.an.instanceof(Error);
+                expect(err.message.indexOf('WRONGTYPE')).to.be.above(-1);
+                done();
+            });
+        });
+        it('should return 0 for a key that does not exist', function (done) {
+            var k = randkey();
+            var v = 'value';
+            expect(redismock.getrange(k, 0, -1)).to.equal('');
+            redismock.getrange(k, 1, 2, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal("");
+                done();
+            });
+        });
+        it('should return an empty string for out-of-range positive indices', function (done) {
+            var k = randkey();
+            var v = 'value';
+            redismock.set(k, v);
+            expect(redismock.getrange(k, 5, 10)).to.equal('');
+            expect(redismock.getrange(k, 10, 2)).to.equal('');
+            redismock.getrange(k, 100, 200, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal("");
+                done();
+            });
+        });
+        xit('should return an empty string for out-of-range negative indices', function (done) {
+            var k = randkey();
+            var v = 'value';
+            redismock.set(k, v);
+            expect(redismock.getrange(k, -10, -5)).to.equal('');
+            expect(redismock.getrange(k, -2, -10)).to.equal('');
+            redismock.getrange(k, -200, -100, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal("");
+                done();
+            });
+        });
+        xit('should return an empty string for out-of-range mixed indices', function (done) {
+        });
+        it('should return the range for in-range positive indices', function (done) {
+            var k = randkey();
+            var v = 'value';
+            redismock.set(k, v);
+            expect(redismock.getrange(k, 0, v.length - 1)).to.equal(v);
+            redismock.getrange(k, 1, 3, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal(v.substr(1, 3));
+                done();
+            });
+        });
+        it('should return the range for in-range negative indices', function (done) {
+            var k = randkey();
+            var v = 'value';
+            redismock.set(k, v);
+            expect(redismock.getrange(k, -5, -1)).to.equal(v);
+            redismock.getrange(k, -4, -2, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal(v.substr(1, 3));
+                done();
+            });
+        });
+        it('should return the range for in-range mixed indices', function (done) {
+            var k = randkey();
+            var v = 'value';
+            redismock.set(k, v);
+            expect(redismock.getrange(k, 0, -1)).to.equal(v);
+            redismock.getrange(k, 1, -2, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal(v.substr(1, 3));
+                done();
+            });
+        });
     });
 
     describe('getset', function () {
@@ -426,7 +744,47 @@
     });
 
     describe('setrange', function () {
-        xit('should setrange');
+        it('should return an error for a key that does not map to string', function (done) {
+            var k = randkey();
+            var v = 'value';
+            redismock.lpush(k, v);
+            expect(redismock.setrange(k, 0, v)).to.be.an.instanceof(Error);
+            redismock.getrange(k, 5, v, function (err, reply) {
+                expect(err).to.exist;
+                expect(reply).to.not.exist;
+                expect(err).to.be.an.instanceof(Error);
+                expect(err.message.indexOf('WRONGTYPE')).to.be.above(-1);
+                done();
+            });
+        });
+        it('should substitute the value for an offset within the length of the key', function (done) {
+            var k = randkey();
+            var v = 'value';
+            redismock.set(k, v);
+            expect(redismock.setrange(k, 1, 'ula')).to.equal(5);
+            expect(redismock.get(k)).to.equal('vulae');
+            expect(redismock.setrange(k, 0, 'e')).to.equal(5);
+            expect(redismock.get(k)).to.equal('eulae');
+            redismock.setrange(k, 4, 'v', function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal(5);
+                expect(redismock.get(k)).to.equal('eulav');
+                done();
+            });
+        });
+        it('should zero-pad out the key for an offset outside of the length of the key', function (done) {
+            var k = randkey();
+            var v = 'value';
+            redismock.set(k, v);
+            expect(redismock.setrange(k, 5, v)).to.equal(10);
+            expect(redismock.get(k)).to.equal(v + v);
+            redismock.setrange(k, 20, v, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal(25);
+                expect(redismock.get(k)).to.equal(v + v + '\0\0\0\0\0\0\0\0\0\0' + v);
+                done();
+            });
+        });
     });
 
     describe('strlen', function () {

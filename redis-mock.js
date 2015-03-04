@@ -1,5 +1,5 @@
 /* jshint unused:true, undef:true, strict:true, plusplus:true */
-/* global setTimeout:false, module:false, exports:true, clearTimeout:false, console:false */
+/* global setTimeout:false, module:false, exports:true, clearTimeout:false */
 
 (function () {
 
@@ -13,6 +13,10 @@
 
     // Create the mock object.
     var redismock = {};
+
+    function exists(v) {
+        return typeof v !== 'undefined' && v !== null;
+    }
 
     // Export the mock object for **node.js/io.js**, with
     // backwards-compatibility for the old `require()` API. If we're in
@@ -31,14 +35,14 @@
     // but it is non-standard. To standardize, convert
     // setImmediate to its equivalent (mostly) counterpart --
     // setTimeout(f, 0) -- if it is not available.
-    if (typeof setImmediate === 'undefined' || typeof setImmediate !== 'function') {
+    if (!exists(setImmediate) || typeof setImmediate !== 'function') {
         var setImmediate = function (f) {
             setTimeout(f, 0);
         };
     }
 
     // Create the process variable if it does not exist.
-    if (typeof process === 'undefined') {
+    if (!exists(process)) {
         var process = {};
     }
 
@@ -163,7 +167,7 @@
     };
 
     var wrongType = function (callback) {
-        return cb(callback)(new Error('WRONGTYPE'));
+        return cb(callback)(new Error('WRONGTYPE Operation against a key holding the wrong kind of value'));
     };
 
     redismock.ifType = function (key, type, callback) {
@@ -249,7 +253,7 @@
 
     // Determine if a key exists.
     redismock.exists = function (key, callback) {
-        return cb(callback)(null, (cache[key] || cache[sets][key] || cache[zsets][key] || cache[hashes][key]) ? 1 : 0);
+        return cb(callback)(null, (exists(cache[key]) || exists(cache[sets][key]) || exists(cache[zsets][key]) || exists(cache[hashes][key])) ? 1 : 0);
     };
 
     // Set a key's time to live in seconds.
@@ -385,7 +389,6 @@
                     }
                     if (key === hashes) {
                         for (var hashkey in cache[zsets]) {
-                            console.log(hashkey);
                             return cb(callback)(null, hashkey);
                         }
                         return cb(callback)(null, null);
@@ -484,7 +487,9 @@
     };
 
     // String Commands
+    // ---------------
 
+    // Append a value to a key.
     redismock.append = function (key, value, callback) {
         return this
             .ifType(key, 'string', callback)
@@ -499,15 +504,139 @@
             .end();
     };
 
+    /*var hamming_weight_map = {
+        0: 0,
+        1: 1,
+        2: 1,
+        3: 2,
+        4: 1,
+        5: 2,
+        6: 2,
+        7: 3,
+        8: 1,
+        9: 2,
+        10: 2,
+        11: 3,
+        12: 2,
+        13: 3,
+        14: 3,
+        15: 4
+    };*/
+
+    // Count set bits in a string.
     redismock.bitcount = function (key, callback) {
-        return cb(callback)(new Error('UNIMPLEMENTED'));
+        var g = gather(this.bitcount).apply(this, arguments);
+        var start, end;
+        callback = g.callback;
+        if (g.list.length === 3) {
+            start = g.list[1];
+            end = g.list[2];
+        }
+        return this
+            .ifType(key, 'string', callback)
+            .thenex(function () {
+                var idx, n, count;
+                if (!exists(start)) {
+                    start = 0;
+                }
+                if (!exists(end)) {
+                    end = cache[key].length - 1;
+                }
+                if (end >= cache[key].length) {
+                    end = cache[key].length - 1;
+                }
+                if (start < 0) {
+                    start = cache[key].length + start;
+                }
+                if (end < 0) {
+                    end = cache[key].length + end;
+                }
+                if (start > end) {
+                    return 0;
+                }
+                count = 0;
+                // TODO: Slow bit-counting, do map to do fast bit counting.
+                for (idx = start; idx <= end; idx += 1) {
+                    n = cache[key].charCodeAt(idx);
+                    while (n) {
+                        count += (n & 1);
+                        n >>= 1;
+                    }
+                }
+                return count;
+            })
+            .thennx(function () { return 0; })
+            .end();
     };
 
+    // Perform bitwise operations between strings.
     redismock.bitop = function (operation, destkey, key, callback) {
-        return cb(callback)(new Error('UNIMPLEMENTED'));
+        var that = this;
+        var g = gather(this.bitop).apply(this, arguments);
+        var longest, strings, string, r;
+        operation = typeof operation === 'string' ? operation.toLowerCase() : '';
+        if (operation !== 'and' && operation !== 'or' && operation !== 'xor' && operation !== 'not') {
+            return cb(callback)(new Error('ERR syntax error'));
+        }
+        callback = g.callback;
+        strings = g
+            .list
+            .map(function (k) {
+                if (that.exists(k) && that.type(k) !== 'string') {
+                    return null;
+                }
+                return that.exists(k) ? cache[k] : '';
+            });
+        if (strings.some(function (str) {
+            return str === null;
+        })) {
+            return wrongType(callback);
+        }
+        longest = strings.reduce(function (length, str) {
+            return str.length > length ? str.length : length;
+        }, 0);
+        strings = strings.map(function (str) {
+            while(str.length < longest) {
+                str += '\0';
+            }
+            return str;
+        });
+        string = strings
+            .reduce(function (cur, str, index) {
+                var idx, n, s;
+                s = '';
+                for (idx = 0; idx < longest; idx += 1) {
+                    if (operation === 'and') {
+                        n = cur.charCodeAt(idx) & str.charCodeAt(idx);
+                    }
+                    else if (operation === 'or') {
+                        n = cur.charCodeAt(idx) | str.charCodeAt(idx);
+                    }
+                    else if (operation === 'xor') {
+                        // a XOR a = 0, so we have to avoid XOR'ing the first string with itself.
+                        if (index > 0) {
+                            n = cur.charCodeAt(idx) ^ str.charCodeAt(idx);
+                        }
+                        else {
+                            n = cur.charCodeAt(idx);
+                        }
+                    }
+                    else if (operation === 'not') {
+                        n = ~cur.charCodeAt(idx);
+                    }
+                    s += String.fromCharCode(n);
+                }
+                return s;
+            }, strings[0]);
+        r = this.set(destkey, string);
+        if (r instanceof Error) {
+            return cb(callback)(r);
+        }
+        return cb(callback)(null, string.length);
     };
 
-    redismock.bitops = function (key, bit, callback) {
+    // Find first bit set or clear in a string.
+    redismock.bitpos = function (key, bit, callback) {
         return cb(callback)(new Error('UNIMPLEMENTED'));
     };
 
@@ -526,12 +655,42 @@
         return cb(callback)(null, null);
     };
 
+    // Returns the bit value at offset in the string value stored at key.
     redismock.getbit = function (key, offset, callback) {
-        return cb(callback)(new Error('UNIMPLEMENTED'));
+        return this
+            .ifType(key, 'string', callback)
+            .thenex(function () {
+                var n, pos;
+                if (offset >= (cache[key].length*8)) {
+                    return 0;
+                }
+                n = cache[key].charCodeAt(Math.floor(offset/8));
+                pos = offset % 8;
+                return (n >> pos) & 1;
+            })
+            .thennx(function () { return 0; })
+            .end();
     };
 
+    // Get a substring of the string stored at a key.
     redismock.getrange = function (key, start, end, callback) {
-        return cb(callback)(new Error('UNIMPLEMENTED'));
+        return this
+            .ifType(key, 'string', callback)
+            .thenex(function () {
+                var len = 0;
+                if (end < 0) {
+                    end = cache[key].length + end;
+                }
+                if (start < 0) {
+                    len = end - (cache[key].length + start) + 1;
+                }
+                else {
+                    len = end - start + 1;
+                }
+                return cache[key].substr(start, len);
+            })
+            .thennx(function () { return ""; })
+            .end();
     };
 
     redismock.getset = function (key, value, callback) {
@@ -631,7 +790,7 @@
                 return cb(callback)(null, null);
             }
         }
-        cache[key] = value ? value.toString() : '';
+        cache[key] = exists(value) ? value.toString() : '';
         if (px !== -1) {
             redismock.pexpire(key, px);
         }
@@ -660,7 +819,27 @@
     };
     
     redismock.setrange = function (key, offset, value, callback) {
-        return cb(callback)(new Error('UNIMPLEMENTED'));
+        return this
+            .ifType(key, 'string', callback)
+            .thennx(function () {
+                cache[key] = '';
+            })
+            .then(function () {
+                var idx, newValue;
+                if (cache[key].length < offset + value.length - 1) {
+                    for (idx = cache[key].length; idx < offset + value.length; idx += 1) {
+                        cache[key] += '\0';
+                    }
+                }
+                newValue = cache[key].substr(0, offset);
+                for (idx = offset; idx < offset + value.length; idx += 1) {
+                    newValue += value[idx - offset];
+                }
+                newValue += cache[key].substr(offset + value.length);
+                cache[key] = newValue;
+                return cache[key].length;
+            })
+            .end();
     };
 
     redismock.strlen = function (key, callback) {

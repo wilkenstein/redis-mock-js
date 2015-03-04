@@ -170,6 +170,14 @@ NOTE: version 0.0.5 will have full support for implemented and unimplemented. Ve
   - HyperLogLog support.
 
 ## Versions
+* 0.0.6
+  - Implement more commands.
+  - Implement more unit tests.
+* 0.0.5
+  - Full browser testing capabilities.
+  - All redis commands "un"-implemented.
+  - Added way to see implemented vs unimplemented commands.
+  - More unit tests and more implementations.
 * 0.0.4
   - Enhanced hash support.
   - Unit tests for hash commands.
