@@ -8,6 +8,7 @@
     "main": "redis-mock.js",
     "version": "0.0.6",
     "devDependencies": {
+        "q": "~1.0",
         "chai": "~2.1",
         "chance": "0.6.1",
         "complexity-report": "1.0.2",

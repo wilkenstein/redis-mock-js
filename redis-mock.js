@@ -2168,4 +2168,42 @@
             return mod.apply(capture, arguments);
         };
     });
+    function toPromise(f, context, deferFactory) {
+        return function () {
+            // Remove the formal callback parameter and make it a promise instead.
+            var args = Array.prototype.slice.call(arguments);
+            var deferred = deferFactory(), promise;
+            while (args.length < f.length - 1) {
+                args.push(undefined);
+            }
+            args.push(function (err, reply) {
+                if (err) {
+                    deferred.reject(err);
+                }
+                deferred.resolve(reply);
+            });
+            f.apply(context, args);
+            promise = deferred.promise;
+            if (typeof promise === 'function') {
+                promise = promise();
+            }
+            return promise;
+        };
+    }
+    redismock.toPromiseStyle = function (deferFactory) {
+        var that = this;
+        return Object
+            .keys(this)
+            .filter(function (key) {
+                return typeof that[key] === 'function';
+            })
+            .map(function (key) {
+                return [key, toPromise(that[key], that, deferFactory)];
+            })
+            .reduce(function (promised, f) {
+                promised[f[0]] = f[1];
+                return promised;
+            }, {});
+    };
+
 }).call(this);

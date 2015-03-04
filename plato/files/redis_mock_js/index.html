@@ -45,11 +45,11 @@
   <div class="row">
     <div class="col-md-6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">72.08</p>
+      <p class="stat">72.13</p>
     </div>
     <div class="col-md-6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">2168</p>
+      <p class="stat">2206</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="col-md-6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">232.21</p>
+      <p class="stat">232.10</p>
     </div>
     <div class="col-md-6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">26.49</p>
+      <p class="stat">27.01</p>
     </div>
   </div>
 </div>
@@ -2260,6 +2260,44 @@
             return mod.apply(capture, arguments);
         };
     });
+    function toPromise(f, context, deferFactory) {
+        return function () {
+            // Remove the formal callback parameter and make it a promise instead.
+            var args = Array.prototype.slice.call(arguments);
+            var deferred = deferFactory(), promise;
+            while (args.length &lt; f.length - 1) {
+                args.push(undefined);
+            }
+            args.push(function (err, reply) {
+                if (err) {
+                    deferred.reject(err);
+                }
+                deferred.resolve(reply);
+            });
+            f.apply(context, args);
+            promise = deferred.promise;
+            if (typeof promise === &#039;function&#039;) {
+                promise = promise();
+            }
+            return promise;
+        };
+    }
+    redismock.toPromiseStyle = function (deferFactory) {
+        var that = this;
+        return Object
+            .keys(this)
+            .filter(function (key) {
+                return typeof that[key] === &#039;function&#039;;
+            })
+            .map(function (key) {
+                return [key, toPromise(that[key], that, deferFactory)];
+            })
+            .reduce(function (promised, f) {
+                promised[f[0]] = f[1];
+                return promised;
+            }, {});
+    };
+
 }).call(this);</textarea>
   </div>
 </div>

@@ -43,7 +43,8 @@
         'save',
         'shutdown',
         'sync',
-        'time'
+        'time',
+        'toPromiseStyle'
     ];
 
     describe('args check', function () {
