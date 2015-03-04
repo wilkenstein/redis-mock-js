@@ -138,8 +138,40 @@
         xit('should exists');
     });
 
-    describe('expire', function () {
-        xit('should expire');
+    describe.only('expire', function () {
+        it('should return 0 for a key that does not exist', function (done) {
+            var k = randkey();
+            var v = 'v';
+            expect(redismock.expire(k, 1)).to.equal(0);
+            redismock.expire(k, 1, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal(0);
+                done();
+            });
+        });
+        it('should return 1 and expire a key in seconds', function (done) {
+            this.timeout(5000);
+            var k = randkey();
+            var v = 'v';
+            redismock.set(k, v);
+            expect(redismock.expire(k, 1)).to.equal(1);
+            setTimeout(function () {
+                expect(redismock.get(k)).to.equal(v);
+            }, 750);
+            setTimeout(function () {
+                expect(redismock.get(k)).to.not.exist;
+                redismock.set(k, v);
+                redismock.expire(k, 1, function (err, reply) {
+                    expect(err).to.not.exist;
+                    expect(reply).to.equal(1);
+                    setTimeout(function () {
+                        expect(redismock.get(k)).to.not.exist;
+                        done();
+                    }, 1100);
+                });
+            }, 1100);
+        });
+        xit('should update the expiry time on subsequent expire calls');
     });
 
     describe('expireat', function () {
