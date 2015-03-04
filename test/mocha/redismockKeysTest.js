@@ -138,7 +138,7 @@
         xit('should exists');
     });
 
-    describe.only('expire', function () {
+    describe('expire', function () {
         it('should return 0 for a key that does not exist', function (done) {
             var k = randkey();
             var v = 'v';

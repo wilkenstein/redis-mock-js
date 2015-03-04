@@ -98,6 +98,21 @@
                 })
                 .done();
         });
+        it('should work with multi', function (done) {
+            var k = randkey();
+            var v = 'v';
+            var redismock_promise = redismock.toPromiseStyle(Q.defer);
+            redismock_promise
+                .multi()
+                .set(k, v)
+                .get(k)
+                .del(k)
+                .exec(function (err, replies) {
+                    expect(err).to.not.exist;
+                    expect(replies).to.have.lengthOf(3);
+                    done();
+                });
+        });
     });
 
 }).call(this);

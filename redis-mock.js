@@ -2207,7 +2207,7 @@
         return Object
             .keys(this)
             .filter(function (key) {
-                return typeof that[key] === 'function';
+                return typeof that[key] === 'function' && key !== 'multi';
             })
             .map(function (key) {
                 return [key, toPromise(that[key], that, deferFactory)];
@@ -2215,7 +2215,7 @@
             .reduce(function (promised, f) {
                 promised[f[0]] = f[1];
                 return promised;
-            }, {});
+            }, {multi: this.multi});
     };
 
 }).call(this);
