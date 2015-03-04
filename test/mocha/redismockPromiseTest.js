@@ -53,6 +53,51 @@
                 })
                 .done();
         });
+        it('should honor callbacks if given', function (done) {
+            var k = randkey();
+            var v = 'v';
+            var redismock_promise = redismock.toPromiseStyle(Q.defer);
+            var called = false;
+            redismock_promise
+                .set(k, v, function (err, reply) {
+                    expect(err).to.not.exist;
+                    expect(reply).to.equal('OK');
+                    called = true;
+                })
+                .then(function (reply) {
+                    expect(reply).to.equal('OK');
+                })
+                .fail(function (err) {
+                    done(new Error(err));
+                })
+                .fin(function () {
+                    expect(called).to.be.true;
+                    done();
+                })
+                .done();
+        });
+        it('should fail appropriately', function (done) {
+            var k = randkey();
+            var v = 'v';
+            var redismock_promise = redismock.toPromiseStyle(Q.defer);
+            var called = false;
+            redismock.lpush(k, v);
+            redismock_promise
+                .getrange(k, 0, -1)
+                .then(function () {
+                    expect(true).to.be.false;
+                }, function (err) {
+                    expect(err).to.be.an.instanceof(Error);
+                    expect(err.message.indexOf('WRONGTYPE')).to.be.above(-1);
+                    throw err;
+                })
+                .fail(function (err) {
+                    expect(err).to.be.an.instanceof(Error);
+                    expect(err.message.indexOf('WRONGTYPE')).to.be.above(-1);
+                    done();
+                })
+                .done();
+        });
     });
 
 }).call(this);

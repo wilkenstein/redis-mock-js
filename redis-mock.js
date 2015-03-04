@@ -322,7 +322,7 @@
 
     // Remove the expiration from a key.
     redismock.persist = function (key, callback) {
-        if (this.exists(key) && key in timeouts) {
+        if (this.exists(key) && timeouts[key]) {
             clearTimeout(timeouts[key].timeout);
             return cb(callback)(null, 1);
         }
@@ -333,7 +333,7 @@
     redismock.pexpire = function (key, milliseconds, callback) {
         var that = this;
         if (this.exists(key)) {
-            if (key in timeouts) {
+            if (timeouts[key]) {
                 clearTimeout(timeouts[key].timeout);
             }
             if (milliseconds <= 0) {
@@ -466,13 +466,13 @@
                 }
             }
             else if (type === 'undefined') {
-                if (key in cache[sets]) {
+                if (key in cache[sets] && cache[sets][key]) {
                     type = 'set';
                 }
-                else if (key in cache[zsets]) {
+                else if (key in cache[zsets] && cache[zsets][key]) {
                     type = 'zset';
                 }
-                else if (key in cache[hashes]) {
+                else if (key in cache[hashes] && cache[hashes][key]) {
                     type = 'hash';
                 }
             }
@@ -2173,12 +2173,24 @@
             // Remove the formal callback parameter and make it a promise instead.
             var args = Array.prototype.slice.call(arguments);
             var deferred = deferFactory(), promise;
+            var callback;
             while (args.length < f.length - 1) {
                 args.push(undefined);
             }
+            if (typeof args[args.length - 1] === 'function') {
+                // Hm, someone passed in the callback, so we should probably honor it when we can.
+                callback = args[args.length - 1];
+                args.pop();
+            }
             args.push(function (err, reply) {
                 if (err) {
-                    deferred.reject(err);
+                    if (callback && typeof callback === 'function') {
+                        callback(err);
+                    }
+                    return deferred.reject(err);
+                }
+                if (callback && typeof callback === 'function') {
+                    callback(null, reply);
                 }
                 deferred.resolve(reply);
             });
