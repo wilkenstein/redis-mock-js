@@ -88,54 +88,78 @@
         xit('should delete multiple mixed keys');
     });
 
-    describe('pttl', function () {
-        it('should return -2 for a key that does not exist', function (done) {
-            var k = randkey();
-            var v = 'v';
-            expect(redismock.pttl(k)).to.equal(-2);
-            redismock.pttl(k, function (err, reply) {
-                expect(err).to.not.exist;
-                expect(reply).to.equal(-2);
-                done();
-            });
-        });
-        it('should return -1 for a key that exists but has no timeout', function (done) {
-            var k = randkey();
-            var v = 'v';
-            redismock.set(k, v);
-            expect(redismock.pttl(k)).to.equal(-1);
-            redismock.pttl(k, function (err, reply) {
-                expect(err).to.not.exist;
-                expect(reply).to.equal(-1);
-                done();
-            });
-        });
-        it('should return the ttl in milliseconds', function (done) {
-            var k = randkey();
-            var v = 'v';
-            redismock.set(k, v);
-            redismock.pexpire(k, 1444);
-            expect(redismock.pttl(k)).to.be.above(1000);
-            redismock.pttl(k, function (err, reply) {
-                expect(err).to.not.exist;
-                expect(reply).to.be.above(1000);
-                setTimeout(function () {
-                    expect(redismock.pttl(k)).to.be.above(200);
-                    setTimeout(function () {
-                        expect(redismock.pttl(k)).to.equal(-2);
-                        done();
-                    }, 700);
-                }, 900);
-            });
-        });
-    });
-
     describe('dump', function () {
         xit('should dump');
     });
 
     describe('exists', function () {
-        xit('should exists');
+        it('should return 0 if the key does not exist', function (done) {
+            var k = randkey();
+            var v = 'v';
+            expect(redismock.exists(k)).to.equal(0);
+            redismock.exists(k, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal(0);
+                done();
+            });
+        });
+        it('should return 1 for a string key that exists', function (done) {
+            var k = randkey();
+            var v = 'v';
+            redismock.set(k, v);
+            expect(redismock.exists(k)).to.equal(1);
+            redismock.exists(k, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal(1);
+                done();
+            });
+        });
+        it('should return 1 for a list key that exists', function (done) {
+            var k = randkey();
+            var v = 'v';
+            redismock.lpush(k, v);
+            expect(redismock.exists(k)).to.equal(1);
+            redismock.exists(k, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal(1);
+                done();
+            });
+        });
+        it('should return 1 for a set key that exists', function (done) {
+            var k = randkey();
+            var v = 'v';
+            redismock.sadd(k, v);
+            expect(redismock.exists(k)).to.equal(1);
+            redismock.exists(k, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal(1);
+                done();
+            });
+        });
+        it('should return 1 for a sorted set key that exists', function (done) {
+            var k = randkey();
+            var v = 'v';
+            redismock.zadd(k, 0, v);
+            expect(redismock.exists(k)).to.equal(1);
+            redismock.exists(k, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal(1);
+                done();
+            });
+        });
+        it('should return 1 for a hash key that exists', function (done) {
+            var k = randkey();
+            var v = 'v';
+            redismock.hset(k, v, v);
+            expect(redismock.exists(k)).to.equal(1);
+            redismock.exists(k, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal(1);
+                done();
+            });
+        });
+        xit('should return 0 after a key expires', function (done) {
+        });
     });
 
     describe('expire', function () {
@@ -176,6 +200,48 @@
 
     describe('expireat', function () {
         xit('should expireat');
+    });
+
+    describe('pttl', function () {
+        it('should return -2 for a key that does not exist', function (done) {
+            var k = randkey();
+            var v = 'v';
+            expect(redismock.pttl(k)).to.equal(-2);
+            redismock.pttl(k, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal(-2);
+                done();
+            });
+        });
+        it('should return -1 for a key that exists but has no timeout', function (done) {
+            var k = randkey();
+            var v = 'v';
+            redismock.set(k, v);
+            expect(redismock.pttl(k)).to.equal(-1);
+            redismock.pttl(k, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal(-1);
+                done();
+            });
+        });
+        it('should return the ttl in milliseconds', function (done) {
+            var k = randkey();
+            var v = 'v';
+            redismock.set(k, v);
+            redismock.pexpire(k, 1444);
+            expect(redismock.pttl(k)).to.be.above(1000);
+            redismock.pttl(k, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.be.above(1000);
+                setTimeout(function () {
+                    expect(redismock.pttl(k)).to.be.above(200);
+                    setTimeout(function () {
+                        expect(redismock.pttl(k)).to.equal(-2);
+                        done();
+                    }, 700);
+                }, 900);
+            });
+        });
     });
 
     describe('keys', function () {
