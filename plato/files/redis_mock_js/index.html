@@ -45,11 +45,11 @@
   <div class="row">
     <div class="col-md-6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">72.05</p>
+      <p class="stat">71.86</p>
     </div>
     <div class="col-md-6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">2218</p>
+      <p class="stat">2250</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="col-md-6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">233.40</p>
+      <p class="stat">234.50</p>
     </div>
     <div class="col-md-6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">27.25</p>
+      <p class="stat">27.98</p>
     </div>
   </div>
 </div>
@@ -1349,14 +1349,14 @@
         callback = g.callback;
         return this
             .ifType(key, &#039;zset&#039;, callback)
-            .thennx(function () { cache[zsets][key] = {}; })
+            .thennx(function () { cache[zsets][key] = {scores: [], set: {}}; })
             .then(function () {
                 var count = 0;
                 g
                     .list
                     .map(function (elem, index) {
                         if (index % 2 === 0) {
-                            return [g.list[index], g.list[index + 1]];
+                            return [parseFloat(g.list[index]), g.list[index + 1]];
                         }
                         return null;
                     })
@@ -1367,30 +1367,32 @@
                         var score = sm[0];
                         var m = sm[1];
                         var noop = false;
-                        if (!(score in cache[zsets][key])) {
-                            cache[zsets][key][score] = [];
+                        if (!cache[zsets][key].set[score]) {
+                            cache[zsets][key].scores.push(score);
+                            cache[zsets][key].set[score] = [];
                         }
-                        Object
-                            .keys(cache[zsets][key])
+                        cache[zsets][key]
+                            .scores
                             .map(function (score) {
-                                return [parseFloat(score), cache[zsets][key][score].indexOf(m)];
+                                return [score, cache[zsets][key].set[score].indexOf(m)];
                             })
                             .filter(function (si) {
                                 return si[1] !== -1;
                             })
                             .forEach(function (si) {
                                 if (si[0] !== score) {
-                                    cache[zsets][key][si[0]].splice(si[1], 1);
+                                    cache[zsets][key].set[si[0]].splice(si[1], 1);
                                 }
                                 else {
                                     noop = true;
                                 }
                             });
                         if (!noop) {
-                            cache[zsets][key][score].push(m);
+                            cache[zsets][key].set[score].push(m);
                             count += 1;
                         }
                     });
+                cache[zsets][key].scores.sort();
                 return count;
             })
             .end();
@@ -1400,10 +1402,9 @@
         return this
             .ifType(key, &#039;zset&#039;, callback)
             .thenex(function () { 
-                var count = Object.keys(cache[zsets][key]).reduce(function (cnt, score) {
-                    return cnt + cache[zsets][key][score].length;
+                return cache[zsets][key].scores.reduce(function (cnt, score) {
+                    return cnt + cache[zsets][key].set[score].length;
                 }, 0);
-                return count; 
             })
             .thennx(function () { return 0; })
             .end();
@@ -1413,16 +1414,13 @@
         return this
             .ifType(key, &#039;zset&#039;, callback)
             .thenex(function () {
-                var count = Object
-                    .keys(cache[zsets][key])
-                    .map(function (score) {
-                        return parseFloat(score);
-                    })
+                var count = cache[zsets][key]
+                    .scores
                     .filter(function (score) {
                         return min &lt;= score &amp;&amp; score &lt;= max;
                     })
                     .reduce(function (cnt, score) {
-                        return cnt + cache[zsets][key][score].length;
+                        return cnt + cache[zsets][key].set[score].length;
                     }, 0);
                 return count;
             })
@@ -1457,36 +1455,60 @@
         return this
             .ifType(key, &#039;zset&#039;, callback)
             .thenex(function () {
-                var index = 0;
-                var arr = [];
-                Object
-                    .keys(cache[zsets][key])
-                    .map(function (score) {
-                        return parseFloat(score);
-                    })
-                    .sort()
+                var startScoreIdx = 0, idx = 0;
+                var range = [];
+                cache[zsets][key]
+                    .scores
                     .some(function (score) {
-                        cache[zsets][key][score].forEach(function (member) {
-                            if (start &lt;= index &amp;&amp; index &lt;= stop) {
-                                arr.push(member);
-                                if (withscores) {
-                                    arr.push(score);
-                                }
-                            }
-                            index += 1;
-                        });
-                        if (index &gt; stop) {
+                        if (idx &lt;= start &amp;&amp; idx + cache[zsets][key].set[score].length &gt; start) {
                             return true;
                         }
+                        idx += cache[zsets][key].set[score].length;
+                        startScoreIdx += 1;
                         return false;
                     });
-                return arr;
+                cache[zsets][key]
+                    .scores
+                    .slice(startScoreIdx)
+                    .some(function (score) {
+                        var arr = [];
+                        var len = cache[zsets][key].set[score].length;
+                        var from = 0, to = 0;
+                        if (idx &gt; stop) {
+                            return true;
+                        }
+                        while (idx &lt; start) {
+                            idx += 1;
+                            from += 1;
+                        }
+                        to = from + 1;
+                        while (idx &lt;= stop &amp;&amp; to &lt;= len) {
+                            idx += 1;
+                            to += 1;
+                        }
+                        arr = cache[zsets][key].set[score].slice(from, to);
+                        arr.sort(function (a, b) {
+                            return a.localeCompare(b);
+                        });
+                        if (withscores) {
+                            arr = arr
+                                .map(function (e) {
+                                    return [e, score];
+                                })
+                                .reduce(function (flat, es) {
+                                    return flat.concat(es);
+                                }, []);
+                        }
+                        range = range.concat(arr);
+                        return false;
+                    });
+                return range;
             })
             .thennx(function () { return []; })
             .end();
     };
 
-    redismock.zrangebylex = function (key, max, min, callback) {
+    redismock.zrangebylex = function (key, min, max, callback) {
         return cb(callback)(new Error(&#039;UNIMPLEMENTED&#039;));
     };
 
@@ -1538,43 +1560,40 @@
         return this
             .ifType(key, &#039;zset&#039;, callback)
             .thenex(function () {
-                Object
-                .keys(cache[zsets][key])
-                .map(function (score) {
-                    return parseFloat(score);
-                })
-                .sort()
-                .some(function (score) {
-                    cache[zsets][key][score].some(function (member) {
-                        if (((minInclusive &amp;&amp; min &lt;= score) || (!minInclusive &amp;&amp; min &lt; score)) &amp;&amp; ((maxInclusive &amp;&amp; score &lt;= max) || (!maxInclusive &amp;&amp; score &lt; max))) {
-                            if (limitOffset !== -1 &amp;&amp; offset &gt;= limitOffset) {
-                                if (limitCount !== -1) {
-                                    if (arr.length &lt; limitCount) {
-                                        arr.push(member);
-                                        if (withscores) {
-                                            arr.push(score);
+                cache[zsets][key]
+                    .scores
+                    .some(function (score) {
+                        cache[zsets][key].set[score].some(function (member) {
+                            // TODO: Re-work to scan scores to the right score, then start there.
+                            if (((minInclusive &amp;&amp; min &lt;= score) || (!minInclusive &amp;&amp; min &lt; score)) &amp;&amp; ((maxInclusive &amp;&amp; score &lt;= max) || (!maxInclusive &amp;&amp; score &lt; max))) {
+                                if (limitOffset !== -1 &amp;&amp; offset &gt;= limitOffset) {
+                                    if (limitCount !== -1) {
+                                        if (arr.length &lt; limitCount) {
+                                            arr.push(member);
+                                            if (withscores) {
+                                                arr.push(score);
+                                            }
+                                        }
+                                        else {
+                                            return true;
                                         }
                                     }
-                                    else {
-                                        return true;
+                                }
+                                else {
+                                    arr.push(member);
+                                    if (withscores) {
+                                        arr.push(score);
                                     }
                                 }
                             }
-                            else {
-                                arr.push(member);
-                                if (withscores) {
-                                    arr.push(score);
-                                }
-                            }
+                            offset += 1;
+                            return false;
+                        });
+                        if (limitCount !== -1 &amp;&amp; arr.length === limitCount) {
+                            return true;
                         }
-                        offset += 1;
                         return false;
                     });
-                    if (limitCount !== -1 &amp;&amp; arr.length === limitCount) {
-                        return true;
-                    }
-                    return false;
-                });
                 return arr;
             })
             .thennx(function () { return []; })
@@ -1586,14 +1605,10 @@
             .ifType(key, &#039;zset&#039;, callback)
             .thenex(function () {
                 var idx = 0;
-                var found = Object
-                    .keys(cache[zsets][key])
-                    .map(function (score) {
-                        return parseFloat(score);
-                    })
-                    .sort()
+                var found = cache[zsets][key]
+                    .scores
                     .some(function (score) {
-                        if (cache[zsets][key][score].indexOf(member) !== -1) {
+                        if (cache[zsets][key].set[score].indexOf(member) !== -1) {
                             return true;
                         }
                         idx += 1;
@@ -1616,20 +1631,21 @@
             .ifType(key, &#039;zset&#039;, callback)
             .thenex(function () {
                 g.list.forEach(function (m) {
-                    Object
-                        .keys(cache[zsets][key])
+                    cache[zsets][key]
+                        .scores
                         .forEach(function (score) {
-                            var idx = cache[zsets][key][score].indexOf(m);
+                            var idx = cache[zsets][key].set[score].indexOf(m);
                             if (idx !== -1) {
-                                cache[zsets][key][score].splice(idx, 1);
+                                cache[zsets][key].set[score].splice(idx, 1);
                                 count += 1;
                             }
-                            if (!cache[zsets][key][score]) {
-                                delete cache[zsets][key][score];
+                            if (cache[zsets][key].set[score].length === 0) {
+                                cache[zsets][key].scores.splice(cache[zsets][key].scores.indexOf(score), 1);
+                                cache[zsets][key].set[score] = [];
                             }
                         });
                 });
-                if (Object.keys(cache[zsets][key]).length === 0) {
+                if (cache[zsets][key].scores.length === 0) {
                     this.del(key);
                 }
             })
@@ -1658,7 +1674,23 @@
     };
 
     redismock.zscore = function (key, member, callback) {
-        return cb(callback)(new Error(&#039;UNIMPLEMENTED&#039;));
+        return this
+            .ifType(key, &#039;zset&#039;, callback)
+            .thenex(function () {
+                var score = null;
+                cache[zsets][key]
+                    .scores
+                    .some(function (s) {
+                        if (cache[zsets][key].set[s].indexOf(member) !== -1) {
+                            score = s;
+                            return true;
+                        }
+                        return false;
+                    });
+                return score;
+            })
+            .thennx(function () { return null; })
+            .end();
     };
 
     redismock.zunionstore = function (destination, numkeys, key, callback) {

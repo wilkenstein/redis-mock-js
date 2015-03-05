@@ -1257,14 +1257,14 @@
         callback = g.callback;
         return this
             .ifType(key, 'zset', callback)
-            .thennx(function () { cache[zsets][key] = {}; })
+            .thennx(function () { cache[zsets][key] = {scores: [], set: {}}; })
             .then(function () {
                 var count = 0;
                 g
                     .list
                     .map(function (elem, index) {
                         if (index % 2 === 0) {
-                            return [g.list[index], g.list[index + 1]];
+                            return [parseFloat(g.list[index]), g.list[index + 1]];
                         }
                         return null;
                     })
@@ -1275,30 +1275,32 @@
                         var score = sm[0];
                         var m = sm[1];
                         var noop = false;
-                        if (!(score in cache[zsets][key])) {
-                            cache[zsets][key][score] = [];
+                        if (!cache[zsets][key].set[score]) {
+                            cache[zsets][key].scores.push(score);
+                            cache[zsets][key].set[score] = [];
                         }
-                        Object
-                            .keys(cache[zsets][key])
+                        cache[zsets][key]
+                            .scores
                             .map(function (score) {
-                                return [parseFloat(score), cache[zsets][key][score].indexOf(m)];
+                                return [score, cache[zsets][key].set[score].indexOf(m)];
                             })
                             .filter(function (si) {
                                 return si[1] !== -1;
                             })
                             .forEach(function (si) {
                                 if (si[0] !== score) {
-                                    cache[zsets][key][si[0]].splice(si[1], 1);
+                                    cache[zsets][key].set[si[0]].splice(si[1], 1);
                                 }
                                 else {
                                     noop = true;
                                 }
                             });
                         if (!noop) {
-                            cache[zsets][key][score].push(m);
+                            cache[zsets][key].set[score].push(m);
                             count += 1;
                         }
                     });
+                cache[zsets][key].scores.sort();
                 return count;
             })
             .end();
@@ -1308,10 +1310,9 @@
         return this
             .ifType(key, 'zset', callback)
             .thenex(function () { 
-                var count = Object.keys(cache[zsets][key]).reduce(function (cnt, score) {
-                    return cnt + cache[zsets][key][score].length;
+                return cache[zsets][key].scores.reduce(function (cnt, score) {
+                    return cnt + cache[zsets][key].set[score].length;
                 }, 0);
-                return count; 
             })
             .thennx(function () { return 0; })
             .end();
@@ -1321,16 +1322,13 @@
         return this
             .ifType(key, 'zset', callback)
             .thenex(function () {
-                var count = Object
-                    .keys(cache[zsets][key])
-                    .map(function (score) {
-                        return parseFloat(score);
-                    })
+                var count = cache[zsets][key]
+                    .scores
                     .filter(function (score) {
                         return min <= score && score <= max;
                     })
                     .reduce(function (cnt, score) {
-                        return cnt + cache[zsets][key][score].length;
+                        return cnt + cache[zsets][key].set[score].length;
                     }, 0);
                 return count;
             })
@@ -1365,36 +1363,60 @@
         return this
             .ifType(key, 'zset', callback)
             .thenex(function () {
-                var index = 0;
-                var arr = [];
-                Object
-                    .keys(cache[zsets][key])
-                    .map(function (score) {
-                        return parseFloat(score);
-                    })
-                    .sort()
+                var startScoreIdx = 0, idx = 0;
+                var range = [];
+                cache[zsets][key]
+                    .scores
                     .some(function (score) {
-                        cache[zsets][key][score].forEach(function (member) {
-                            if (start <= index && index <= stop) {
-                                arr.push(member);
-                                if (withscores) {
-                                    arr.push(score);
-                                }
-                            }
-                            index += 1;
-                        });
-                        if (index > stop) {
+                        if (idx <= start && idx + cache[zsets][key].set[score].length > start) {
                             return true;
                         }
+                        idx += cache[zsets][key].set[score].length;
+                        startScoreIdx += 1;
                         return false;
                     });
-                return arr;
+                cache[zsets][key]
+                    .scores
+                    .slice(startScoreIdx)
+                    .some(function (score) {
+                        var arr = [];
+                        var len = cache[zsets][key].set[score].length;
+                        var from = 0, to = 0;
+                        if (idx > stop) {
+                            return true;
+                        }
+                        while (idx < start) {
+                            idx += 1;
+                            from += 1;
+                        }
+                        to = from + 1;
+                        while (idx <= stop && to <= len) {
+                            idx += 1;
+                            to += 1;
+                        }
+                        arr = cache[zsets][key].set[score].slice(from, to);
+                        arr.sort(function (a, b) {
+                            return a.localeCompare(b);
+                        });
+                        if (withscores) {
+                            arr = arr
+                                .map(function (e) {
+                                    return [e, score];
+                                })
+                                .reduce(function (flat, es) {
+                                    return flat.concat(es);
+                                }, []);
+                        }
+                        range = range.concat(arr);
+                        return false;
+                    });
+                return range;
             })
             .thennx(function () { return []; })
             .end();
     };
 
-    redismock.zrangebylex = function (key, max, min, callback) {
+    redismock.zrangebylex = function (key, min, max, callback) {
         return cb(callback)(new Error('UNIMPLEMENTED'));
     };
 
@@ -1446,43 +1468,40 @@
         return this
             .ifType(key, 'zset', callback)
             .thenex(function () {
-                Object
-                .keys(cache[zsets][key])
-                .map(function (score) {
-                    return parseFloat(score);
-                })
-                .sort()
-                .some(function (score) {
-                    cache[zsets][key][score].some(function (member) {
-                        if (((minInclusive && min <= score) || (!minInclusive && min < score)) && ((maxInclusive && score <= max) || (!maxInclusive && score < max))) {
-                            if (limitOffset !== -1 && offset >= limitOffset) {
-                                if (limitCount !== -1) {
-                                    if (arr.length < limitCount) {
-                                        arr.push(member);
-                                        if (withscores) {
-                                            arr.push(score);
+                cache[zsets][key]
+                    .scores
+                    .some(function (score) {
+                        cache[zsets][key].set[score].some(function (member) {
+                            // TODO: Re-work to scan scores to the right score, then start there.
+                            if (((minInclusive && min <= score) || (!minInclusive && min < score)) && ((maxInclusive && score <= max) || (!maxInclusive && score < max))) {
+                                if (limitOffset !== -1 && offset >= limitOffset) {
+                                    if (limitCount !== -1) {
+                                        if (arr.length < limitCount) {
+                                            arr.push(member);
+                                            if (withscores) {
+                                                arr.push(score);
+                                            }
+                                        }
+                                        else {
+                                            return true;
                                         }
                                     }
-                                    else {
-                                        return true;
+                                }
+                                else {
+                                    arr.push(member);
+                                    if (withscores) {
+                                        arr.push(score);
                                     }
                                 }
                             }
-                            else {
-                                arr.push(member);
-                                if (withscores) {
-                                    arr.push(score);
-                                }
-                            }
+                            offset += 1;
+                            return false;
+                        });
+                        if (limitCount !== -1 && arr.length === limitCount) {
+                            return true;
                         }
-                        offset += 1;
                         return false;
                     });
-                    if (limitCount !== -1 && arr.length === limitCount) {
-                        return true;
-                    }
-                    return false;
-                });
                 return arr;
             })
             .thennx(function () { return []; })
@@ -1494,14 +1513,10 @@
             .ifType(key, 'zset', callback)
             .thenex(function () {
                 var idx = 0;
-                var found = Object
-                    .keys(cache[zsets][key])
-                    .map(function (score) {
-                        return parseFloat(score);
-                    })
-                    .sort()
+                var found = cache[zsets][key]
+                    .scores
                     .some(function (score) {
-                        if (cache[zsets][key][score].indexOf(member) !== -1) {
+                        if (cache[zsets][key].set[score].indexOf(member) !== -1) {
                             return true;
                         }
                         idx += 1;
@@ -1524,20 +1539,21 @@
             .ifType(key, 'zset', callback)
             .thenex(function () {
                 g.list.forEach(function (m) {
-                    Object
-                        .keys(cache[zsets][key])
+                    cache[zsets][key]
+                        .scores
                         .forEach(function (score) {
-                            var idx = cache[zsets][key][score].indexOf(m);
+                            var idx = cache[zsets][key].set[score].indexOf(m);
                             if (idx !== -1) {
-                                cache[zsets][key][score].splice(idx, 1);
+                                cache[zsets][key].set[score].splice(idx, 1);
                                 count += 1;
                             }
-                            if (!cache[zsets][key][score]) {
-                                delete cache[zsets][key][score];
+                            if (cache[zsets][key].set[score].length === 0) {
+                                cache[zsets][key].scores.splice(cache[zsets][key].scores.indexOf(score), 1);
+                                cache[zsets][key].set[score] = [];
                             }
                         });
                 });
-                if (Object.keys(cache[zsets][key]).length === 0) {
+                if (cache[zsets][key].scores.length === 0) {
                     this.del(key);
                 }
             })
@@ -1566,7 +1582,23 @@
     };
 
     redismock.zscore = function (key, member, callback) {
-        return cb(callback)(new Error('UNIMPLEMENTED'));
+        return this
+            .ifType(key, 'zset', callback)
+            .thenex(function () {
+                var score = null;
+                cache[zsets][key]
+                    .scores
+                    .some(function (s) {
+                        if (cache[zsets][key].set[s].indexOf(member) !== -1) {
+                            score = s;
+                            return true;
+                        }
+                        return false;
+                    });
+                return score;
+            })
+            .thennx(function () { return null; })
+            .end();
     };
 
     redismock.zunionstore = function (destination, numkeys, key, callback) {

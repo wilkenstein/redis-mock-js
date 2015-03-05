@@ -273,7 +273,7 @@
                 done();
             });
         });
-        it('to return an empty array for a key that does not exist', function (done) {
+        it('should return an empty array for a key that does not exist', function (done) {
             var k = randkey();
             var v = 'v';
             expect(redismock.zrangebyscore(k, 0, 1)).to.have.lengthOf(0);
@@ -283,7 +283,7 @@
                 done();
             });
         });
-        it('to return the range', function (done) {
+        it('should return the range', function (done) {
             var k = randkey();
             var v1 = 'v1', v11 = 'v11', v2 = 'v2', v5 = 'v5', v7 = 'v7';
             redismock.zadd(k, 1, v1, 1, v11, 2, v2, 5, v5, 7, v7);
@@ -300,7 +300,7 @@
                 done();
             });
         });
-        it('to return the range with scores', function (done) {
+        it('should return the range with scores', function (done) {
             var k = randkey();
             var v1 = 'v1', v11 = 'v11', v2 = 'v2', v5 = 'v5', v7 = 'v7';
             redismock.zadd(k, 1, v1, 1, v11, 2, v2, 5, v5, 7, v7);
@@ -322,7 +322,7 @@
                 done();
             });
         });
-        xit('to return the range from offset with count', function (done) {
+        xit('should return the range from offset with count', function (done) {
             var k = randkey();
             var v1 = 'v1', v11 = 'v11', v2 = 'v2', v5 = 'v5', v7 = 'v7';
             redismock.zadd(k, 1, v1, 1, v11, 2, v2, 5, v5, 7, v7);
@@ -339,8 +339,8 @@
                 done();
             });
         });
-        xit('to return the range for -inf and +inf min/max');
-        it('to return the range for exclusive min/max', function () {
+        xit('should return the range for -inf and +inf min/max');
+        it('should return the range for exclusive min/max', function () {
             var k = randkey();
             var v1 = 'v1', v11 = 'v11', v2 = 'v2', v5 = 'v5', v7 = 'v7';
             redismock.zadd(k, 1, v1, 1, v11, 2, v2, 5, v5, 7, v7);
@@ -473,7 +473,56 @@
     });
 
     describe('zscore', function () {
-        xit('should zscore');
+        it('should return an error for a key that is not a zset', function (done) {
+            var k = randkey();
+            var v = 'v';
+            redismock.set(k, v);
+            expect(redismock.zscore(k, v)).to.be.an.instanceof(Error);
+            redismock.zscore(k, v, function (err, reply) {
+                expect(err).to.exist;
+                expect(reply).to.not.exist;
+                expect(err).to.be.an.instanceof(Error);
+                expect(err.message.indexOf('WRONGTYPE')).to.be.above(-1);
+                done();
+            });
+        });
+        it('should return nothing for a key that does not exist', function (done) {
+            var k = randkey();
+            var v = 'v';
+            expect(redismock.zscore(k, v)).to.not.exist;
+            redismock.zscore(k, v, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.not.exist;
+                done();
+            });
+        });
+        it('should return nothing for a member that does not exist in the sorted set', function (done) {
+            var k = randkey();
+            var v = 'v', na = 'na';
+            redismock.zadd(k, 0, v);
+            expect(redismock.zscore(k, na)).to.not.exist;
+            redismock.zscore(k, na, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.not.exist;
+                done();
+            });
+        });
+        it('should return the score for a member in the sorted set', function (done) {
+            var k = randkey();
+            var v1 = 'v1', v11 = 'v11', v2 = 'v2', v21 = 'v21', v3 = 'v3', v31 = 'v31', v32 = 'v32';
+            redismock.zadd(k, 1, v1, 1, v11, 2, v2, 2, v21, 3, v3, 3, v31, 3, v32);
+            expect(redismock.zscore(k, v1)).to.equal(1);
+            expect(redismock.zscore(k, v2)).to.equal(2);
+            expect(redismock.zscore(k, v3)).to.equal(3);
+            expect(redismock.zscore(k, v11)).to.equal(1);
+            expect(redismock.zscore(k, v21)).to.equal(2);
+            expect(redismock.zscore(k, v31)).to.equal(3);
+            redismock.zscore(k, v32, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal(3);
+                done();
+            });
+        });
     });
 
     describe('zunionstore', function () {
