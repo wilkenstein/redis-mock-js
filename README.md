@@ -132,7 +132,7 @@ The redis-mock object is exported onto the global `window` object as
 })();
 ````
 
-## toPromiseStyle
+### toPromiseStyle
 
 A convenience function exists on the redismock object to turn all the
 redis commands into a Promise style. This function takes a Factory
@@ -145,7 +145,7 @@ var redis = require('redis-js').toPromiseStyle(Q.defer);
 
 function setGetAsPromise() {
     return redis
-        .set('key', value')
+        .set('key', 'value')
         .then(function () {
             return redis.get('key');
         })
