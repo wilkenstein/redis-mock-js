@@ -163,6 +163,7 @@ NOTE: version 0.0.5 will have full support for implemented and unimplemented. Ve
     redis versions.
   - Support for multiple mock redis instances.
   - Support for migrating data between mock redis instances.
+  - Server support.
 * 2.0.0
   - Support for migrating data from a mock redis instance to a real
     redis instance.

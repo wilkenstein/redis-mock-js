@@ -54,6 +54,7 @@
     var sets = 'sets-' + Math.random();
     var zsets = 'zsets-' + Math.random();
     var hashes = 'hashes-' + Math.random();
+    var keys = [];
     cache[sets] = {};
     cache[zsets] = {};
     cache[hashes] = {};
@@ -637,15 +638,86 @@
 
     // Find first bit set or clear in a string.
     redismock.bitpos = function (key, bit, callback) {
-        return cb(callback)(new Error('UNIMPLEMENTED'));
+        var g = gather(this.bitpos, 3).apply(this, arguments);
+        var start, end;
+        callback = g.callback;
+        if (g.list.length > 1) {
+            start = g.list[1];
+            end = g.list[2];
+        }
+        if (typeof start === 'undefined') {
+            start = 0;
+        }
+        if (bit !== 0 && bit !== 1) {
+            return cb(callback)(new Error('ERR The bit argument must be 1 or 0.'));
+        }
+        return this
+            .ifType(key, 'string', callback)
+            .thennx(function () { 
+                if (bit === 0) {
+                    return 0;
+                }
+                return -1;
+            })
+            .thenex(function () {
+                var idx, len, str, ch, cnt, noend = false;
+                if (start < 0) {
+                    start = cache[key].length + start;
+                }
+                if (typeof end === 'undefined') {
+                    noend = true;
+                    end = cache[key].length - 1;
+                }
+                if (end < 0) {
+                    end = cache[key].length + end;
+                }
+                if (start > end) {
+                    return -1;
+                }
+                str = cache[key].substring(start, end + 1);
+                len = str.length;
+                for (idx = 0; idx < len; idx += 1) {
+                    ch = str.charCodeAt(idx);
+                    cnt = 0;
+                    while (ch) {
+                        if (bit === 0 && (ch & 0x80) !== 0x80) {
+                            return idx*8 + cnt;
+                        }
+                        if (bit === 1 && (ch & 0x80) === 0x80) {
+                            return idx*8 + cnt;
+                        }
+                        ch <<= 1;
+                        cnt += 1;
+                    }
+                }
+                if (bit === 1) {
+                    return -1;
+                }
+                if (bit === 0 && !noend) {
+                    return idx;
+                }
+                return -1;
+            })
+            .end();
     };
 
     redismock.decr = function (key, callback) {
-        return cb(callback)(new Error('UNIMPLEMENTED'));
+        return this.decrby(key, 1, callback);
     };
 
     redismock.decrby = function (key, decrement, callback) {
-        return cb(callback)(new Error('UNIMPLEMENTED'));
+        return this
+            .ifType(key, 'string', callback)
+            .thennx(function () { this.set(key, '0'); })
+            .then(function () {
+                var asInt = parseInt(this.get(key), 10);
+                if (isNaN(asInt)) {
+                    return new Error("ERR value is not an integer or out of range");
+                }
+                this.set(key, asInt - decrement);
+                return (asInt - decrement);
+            })
+            .end();
     };
 
     redismock.get = function (key, callback) {
@@ -700,15 +772,37 @@
     };
 
     redismock.incr = function (key, callback) {
-        return cb(callback)(new Error('UNIMPLEMENTED'));
+        return this.incrby(key, 1, callback);
     };
 
     redismock.incrby = function (key, increment, callback) {
-        return cb(callback)(new Error('UNIMPLEMENTED'));
+        return this
+            .ifType(key, 'string', callback)
+            .thennx(function () { this.set(key, '0'); })
+            .then(function () {
+                var asInt = parseInt(this.get(key), 10);
+                if (isNaN(asInt)) {
+                    return new Error("ERR value is not an integer or out of range");
+                }
+                this.set(key, asInt + increment);
+                return (asInt + increment);
+            })
+            .end();
     };
 
     redismock.incrbyfloat = function (key, increment, callback) {
-        return cb(callback)(new Error('UNIMPLEMENTED'));
+        return this
+            .ifType(key, 'string', callback)
+            .thennx(function () { this.set(key, '0'); })
+            .then(function () {
+                var asInt = parseFloat(this.get(key));
+                if (isNaN(asInt)) {
+                    return new Error("ERR value is not an integer or out of range");
+                }
+                this.set(key, asInt + increment);
+                return this.get(key);
+            })
+            .end();
     };
 
     redismock.mget = function (key, callback) {
@@ -2209,7 +2303,7 @@
             while (args.length < f.length - 1) {
                 args.push(undefined);
             }
-            if (typeof args[args.length - 1] === 'function') {
+            if (args.length === f.length && typeof args[args.length - 1] === 'function') {
                 // Hm, someone passed in the callback, so we should probably honor it when we can.
                 callback = args[args.length - 1];
                 args.pop();

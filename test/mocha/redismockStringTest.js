@@ -230,20 +230,155 @@
         });
     });
 
-    describe('bitpos', function () {
+    describe.only('bitpos', function () {
+        it('should return an error for a key that does not map to string', function (done) {
+            var k = randkey();
+            var v = 'value';
+            redismock.lpush(k, v);
+            expect(redismock.bitpos(k, 0)).to.be.an.instanceof(Error);
+            redismock.bitpos(k, 1, function (err, reply) {
+                expect(err).to.exist;
+                expect(reply).to.not.exist;
+                expect(err).to.be.an.instanceof(Error);
+                expect(err.message.indexOf('WRONGTYPE')).to.be.above(-1);
+                done();
+            });
+        });
+        it('should return -1 for a key that does not exist and set bit is specified', function (done) {
+            var k = randkey();
+            expect(redismock.bitpos(k, 1)).to.equal(-1);
+            redismock.bitpos(k, 1, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal(-1);
+                done();
+            });
+        });
+        it('should return 0 for a key that does not exist and clear bit is specified', function (done) {
+            var k = randkey();
+            expect(redismock.bitpos(k, 0)).to.equal(0);
+            redismock.bitpos(k, 0, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal(0);
+                done();
+            });
+        });
+        it('should return off the end for a key that is all 1s and clear bit is specified', function (done) {
+            var k = randkey();
+            var v = String.fromCharCode(0xFF);
+            v += v;
+            redismock.set(k, v);
+            expect(redismock.bitpos(k, 0)).to.equal(8);
+            redismock.bitpos(k, 0, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal(8);
+                done();
+            });
+        });
         xit('should bitpos');
     });
 
     describe('decr', function () {
-        xit('should decr');
+        it('should return an error for a key that does not map to string', function (done) {
+            var k = randkey();
+            var v = 'value';
+            redismock.lpush(k, v);
+            expect(redismock.decr(k)).to.be.an.instanceof(Error);
+            redismock.decr(k, function (err, reply) {
+                expect(err).to.exist;
+                expect(reply).to.not.exist;
+                expect(err).to.be.an.instanceof(Error);
+                expect(err.message.indexOf('WRONGTYPE')).to.be.above(-1);
+                done();
+            });
+        });
+        it('should return an error for a key that is not an integer', function (done) {
+            var k = randkey();
+            var v = 'value';
+            redismock.set(k, v);
+            expect(redismock.decr(k)).to.be.an.instanceof(Error);
+            redismock.decr(k, function (err, reply) {
+                expect(err).to.exist;
+                expect(reply).to.not.exist;
+                expect(err).to.be.an.instanceof(Error);
+                expect(err.message.indexOf('ERR')).to.be.above(-1);
+                done();
+            });
+        });
+        it('should initialize the key with 0 if it does not exist, then decr', function (done) {
+            var k = randkey();
+            expect(redismock.decr(k)).to.equal(-1);
+            redismock.del(k);
+            redismock.decr(k, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal(-1);
+                done();
+            });
+        });
+        it('should decr an integer key by 1', function (done) {
+            var k = randkey();
+            var v = 123;
+            redismock.set(k, v);
+            expect(redismock.decr(k)).to.equal(v - 1);
+            redismock.decr(k, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal(v - 2);
+                done();
+            });
+        });
     });
 
     describe('decrby', function () {
-        xit('should decrby');
+        it('should return an error for a key that does not map to string', function (done) {
+            var k = randkey();
+            var v = 'value';
+            redismock.lpush(k, v);
+            expect(redismock.decrby(k, 4)).to.be.an.instanceof(Error);
+            redismock.decrby(k, 13, function (err, reply) {
+                expect(err).to.exist;
+                expect(reply).to.not.exist;
+                expect(err).to.be.an.instanceof(Error);
+                expect(err.message.indexOf('WRONGTYPE')).to.be.above(-1);
+                done();
+            });
+        });
+        it('should return an error for a key that is not an integer', function (done) {
+            var k = randkey();
+            var v = 'value';
+            redismock.set(k, v);
+            expect(redismock.decrby(k, 4)).to.be.an.instanceof(Error);
+            redismock.decrby(k, 13, function (err, reply) {
+                expect(err).to.exist;
+                expect(reply).to.not.exist;
+                expect(err).to.be.an.instanceof(Error);
+                expect(err.message.indexOf('ERR')).to.be.above(-1);
+                done();
+            });
+        });
+        it('should initialize the key with 0 if it does not exist, then decrby', function (done) {
+            var k = randkey();
+            expect(redismock.decrby(k, 4)).to.equal(-4);
+            redismock.del(k);
+            redismock.decrby(k, 13, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal(-13);
+                done();
+            });
+        });
+        it('should decr an integer key by the decrement', function (done) {
+            var k = randkey();
+            var v = 123;
+            redismock.set(k, v);
+            expect(redismock.decrby(k, 4)).to.equal(v - 4);
+            redismock.decrby(k, 13, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal(v - 4 - 13);
+                done();
+            });
+        });
     });
 
     describe('get', function () {
-        it('to return nothing for a key that does not exist', function (done) {
+        it('should return nothing for a key that does not exist', function (done) {
             expect(redismock.get(randkey())).to.not.exist;
             redismock.get(randkey(), function (err, reply) {
                 expect(err).to.not.exist;
@@ -251,7 +386,7 @@
                 done();
             });
         });
-        it('to return the value for an existing key', function (done) {
+        it('should return the value for an existing key', function (done) {
             var k = randkey();
             var v = 'value';
             redismock.set(k, v);
@@ -262,7 +397,7 @@
                 done();
             });
         });
-        it('to not return the value for a key that does not map to a string', function (done) {
+        it('should not return the value for a key that does not map to a string', function (done) {
             var k = randkey();
             var v = 'value';
             redismock.lpush(k, v);
@@ -432,7 +567,7 @@
     });
 
     describe('getset', function () {
-        it('to return nothing for a key that did not exist and set the key', function (done) {
+        it('should return nothing for a key that did not exist and set the key', function (done) {
             var k1 = randkey(), k2 = randkey();
             var v = 'value';
             expect(redismock.getset(k1, v)).to.not.exist;
@@ -446,7 +581,7 @@
                 done();
             });
         });
-        it('to return the previous value for an existing key', function (done) {
+        it('should return the previous value for an existing key', function (done) {
             var k = randkey();
             var v1 = 'value', v2 = 'value2', v3 = 'value3';
             redismock.set(k, v1);
@@ -459,7 +594,7 @@
                 done();
             });
         });
-        it('to not return a previous value for a key that did not map to a string', function (done) {
+        it('should not return a previous value for a key that did not map to a string', function (done) {
             var k = randkey();
             var v = 'value';
             redismock.lpush(k, v);
@@ -477,15 +612,153 @@
     });
 
     describe('incr', function () {
-        xit('should incr');
+        it('should return an error for a key that does not map to string', function (done) {
+            var k = randkey();
+            var v = 'value';
+            redismock.lpush(k, v);
+            expect(redismock.incr(k)).to.be.an.instanceof(Error);
+            redismock.incr(k, function (err, reply) {
+                expect(err).to.exist;
+                expect(reply).to.not.exist;
+                expect(err).to.be.an.instanceof(Error);
+                expect(err.message.indexOf('WRONGTYPE')).to.be.above(-1);
+                done();
+            });
+        });
+        it('should return an error for a key that is not an integer', function (done) {
+            var k = randkey();
+            var v = 'value';
+            redismock.set(k, v);
+            expect(redismock.incr(k)).to.be.an.instanceof(Error);
+            redismock.incr(k, function (err, reply) {
+                expect(err).to.exist;
+                expect(reply).to.not.exist;
+                expect(err).to.be.an.instanceof(Error);
+                expect(err.message.indexOf('ERR')).to.be.above(-1);
+                done();
+            });
+        });
+        it('should initialize the key with 0 if it does not exist, then incr', function (done) {
+            var k = randkey();
+            expect(redismock.incr(k)).to.equal(1);
+            redismock.del(k);
+            redismock.incr(k, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal(1);
+                done();
+            });
+        });
+        it('should incr an integer key by 1', function (done) {
+            var k = randkey();
+            var v = 123;
+            redismock.set(k, v);
+            expect(redismock.incr(k)).to.equal(v + 1);
+            redismock.incr(k, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal(v + 2);
+                done();
+            });
+        });
     });
 
     describe('incrby', function () {
-        xit('should incrby');
+        it('should return an error for a key that does not map to string', function (done) {
+            var k = randkey();
+            var v = 'value';
+            redismock.lpush(k, v);
+            expect(redismock.incrby(k, 4)).to.be.an.instanceof(Error);
+            redismock.incrby(k, 13, function (err, reply) {
+                expect(err).to.exist;
+                expect(reply).to.not.exist;
+                expect(err).to.be.an.instanceof(Error);
+                expect(err.message.indexOf('WRONGTYPE')).to.be.above(-1);
+                done();
+            });
+        });
+        it('should return an error for a key that is not an integer', function (done) {
+            var k = randkey();
+            var v = 'value';
+            redismock.set(k, v);
+            expect(redismock.incrby(k, 4)).to.be.an.instanceof(Error);
+            redismock.incrby(k, 13, function (err, reply) {
+                expect(err).to.exist;
+                expect(reply).to.not.exist;
+                expect(err).to.be.an.instanceof(Error);
+                expect(err.message.indexOf('ERR')).to.be.above(-1);
+                done();
+            });
+        });
+        it('should initialize the key with 0 if it does not exist, then incrby', function (done) {
+            var k = randkey();
+            expect(redismock.incrby(k, 4)).to.equal(4);
+            redismock.del(k);
+            redismock.incr(k, 13, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal(13);
+                done();
+            });
+        });
+        it('should incr an integer key by the given increment', function (done) {
+            var k = randkey();
+            var v = 123;
+            redismock.set(k, v);
+            expect(redismock.incrby(k, 4)).to.equal(v + 4);
+            redismock.incrby(k, 13, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal(v + 4 + 13);
+                done();
+            });
+        });
     });
 
     describe('incrbyfloat', function () {
-        xit('should incrbyfloat');
+        it('should return an error for a key that does not map to string', function (done) {
+            var k = randkey();
+            var v = 'value';
+            redismock.lpush(k, v);
+            expect(redismock.incrbyfloat(k, 0.9)).to.be.an.instanceof(Error);
+            redismock.incrbyfloat(k, 3.1415, function (err, reply) {
+                expect(err).to.exist;
+                expect(reply).to.not.exist;
+                expect(err).to.be.an.instanceof(Error);
+                expect(err.message.indexOf('WRONGTYPE')).to.be.above(-1);
+                done();
+            });
+        });
+        it('should return an error for a key that is not a number', function (done) {
+            var k = randkey();
+            var v = 'value';
+            redismock.set(k, v);
+            expect(redismock.incrbyfloat(k, 0.9)).to.be.an.instanceof(Error);
+            redismock.incrbyfloat(k, 3.1415, function (err, reply) {
+                expect(err).to.exist;
+                expect(reply).to.not.exist;
+                expect(err).to.be.an.instanceof(Error);
+                expect(err.message.indexOf('ERR')).to.be.above(-1);
+                done();
+            });
+        });
+        it('should initialize the key with 0 if it does not exist, then incrbyfloat', function (done) {
+            var k = randkey();
+            expect(redismock.incrbyfloat(k, 0.9)).to.equal('0.9');
+            redismock.del(k);
+            redismock.incrbyfloat(k, 3.1415, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal('3.1415');
+                done();
+            });
+        });
+        it('should incr a number key by the given increment', function (done) {
+            var k = randkey();
+            var v = 123.4567;
+            redismock.set(k, v);
+            expect(redismock.incrbyfloat(k, 0.9)).to.equal((v + 0.9).toString());
+            redismock.incrbyfloat(k, 3.1415, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal((v + 0.9 + 3.1415).toString());
+                done();
+            });
+        });
     });
 
     describe('mget', function () {
@@ -581,11 +854,11 @@
                 done();
             }, 1700);
         });
-        xit('to override a previous mapping with the new key-value mapping');
+        xit('should override a previous mapping with the new key-value mapping');
     });
 
     describe('set', function () {
-        it('to set a key', function (done) {
+        it('should set a key', function (done) {
             var k1 = randkey(), k2 = randkey();
             var v = 'value';
             expect(redismock.set(k1, v)).to.equal('OK');
@@ -599,7 +872,7 @@
                 done();
             });
         });
-        it('to override a previous mapping with the new key-value mapping', function (done) {
+        it('should override a previous mapping with the new key-value mapping', function (done) {
             var k1 = randkey(), k2 = randkey();
             var v = 'value';
             redismock.lpush(k1, v);
@@ -615,7 +888,7 @@
                 done();
             });
         });
-        it('to not set a key if the key exists and the nx option is given', function (done) {
+        it('should not set a key if the key exists and the nx option is given', function (done) {
             var k = randkey();
             var v = 'value', nv = 'nvalue';
             redismock.set(k, v);
@@ -629,7 +902,7 @@
                 done();
             });
         });
-        it('to set a key if the key does not exist and the nx option is given', function (done) {
+        it('should set a key if the key does not exist and the nx option is given', function (done) {
             var k = randkey(), k2 = randkey();
             var v = 'value', v2 = 'v2';
             expect(redismock.set(k, v, 'nx')).to.equal('OK');
@@ -641,7 +914,7 @@
                 done();
             });
         });
-        it('to not set a key if the key does not exist and the xx option is given', function (done) {
+        it('should not set a key if the key does not exist and the xx option is given', function (done) {
             var k = randkey();
             var v = 'value';
             expect(redismock.set(k, v, 'xx')).to.not.exist;
@@ -651,7 +924,7 @@
                 done();
             });
         });
-        it('to set a key if the key does exist and the xx option is given', function (done) {
+        it('should set a key if the key does exist and the xx option is given', function (done) {
             var k = randkey();
             var v = 'value', v2 = 'v2';
             redismock.set(k, v);
@@ -664,7 +937,7 @@
                 done();
             });
         });
-        it('to set and expire a key in seconds if the px key is given', function (done) {
+        it('should set and expire a key in seconds if the px key is given', function (done) {
             this.timeout(5000);
             var k = randkey();
             var v = 'value';
@@ -677,7 +950,7 @@
                 done();
             }, 1800);
         });
-        it('to set and expire a key in milliseconds if the px option is given', function (done) {
+        it('should set and expire a key in milliseconds if the px option is given', function (done) {
             this.timeout(5000);
             var k = randkey();
             var v = 'value';
@@ -711,11 +984,11 @@
                 done();
             }, 1200);
         });
-        xit('to override a previous mapping with the new key-value mapping');
+        xit('should override a previous mapping with the new key-value mapping');
     });
 
     describe('setnx', function () {
-        it('to set a key if the key does not exist', function (done) {
+        it('should set a key if the key does not exist', function (done) {
             var k1 = randkey(), k2 = randkey();
             var v = 'value';
             expect(redismock.setnx(k1, v)).to.equal(1);
@@ -729,7 +1002,7 @@
                 done();
             });
         });
-        it('to not set a key if the key exists', function (done) {
+        it('should not set a key if the key exists', function (done) {
             var k1 = randkey(), k2 = randkey();
             var v = 'value';
             expect(redismock.set(k1, v)).to.equal('OK');
@@ -788,7 +1061,7 @@
     });
 
     describe('strlen', function () {
-        it('to return 0 for a key that does not exist', function (done) {
+        it('should return 0 for a key that does not exist', function (done) {
             expect(redismock.strlen(randkey())).to.equal(0);
             redismock.strlen(randkey(), function (err, reply) {
                 expect(err).to.not.exist;
@@ -796,7 +1069,7 @@
                 done();
             });
         });
-        it('to return the length for a key that exists', function (done) {
+        it('should return the length for a key that exists', function (done) {
             var k = randkey();
             var v = 'value';
             redismock.set(k, v);
@@ -807,7 +1080,7 @@
                 done();
             });
         });
-        it('to return an error for a key that is not a string', function (done) {
+        it('should return an error for a key that is not a string', function (done) {
             var k = randkey();
             var v = 'value';
             redismock.lpush(k, v);
