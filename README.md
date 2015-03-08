@@ -227,8 +227,7 @@ NOTE: version 0.0.5 will have full support for implemented and unimplemented. Ve
 * 0.0.7
   - All string commands implemented.
   - Better unit tests.
-  - Travis integration to automatically generate, test, and commit a
-    minified redis-mock.
+  - Automatically generate and test a minified redis-mock.
 * 0.0.6
   - Implement more commands.
   - Implement more unit tests.
