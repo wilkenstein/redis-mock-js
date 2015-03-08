@@ -12,7 +12,13 @@ $ npm install redis-js
 
 ### Browser
 
-TODO: Add minified javascript files. Provide github link? Or other site?
+There are minified files available on github. These files currently
+represent the latest version. To use in the browser, add the following
+script tag:
+
+````html
+<script src="https://github.com/wilkenstein/redis-mock-min.js">
+````
 
 ## Usage
 
@@ -106,6 +112,53 @@ function setGetDelQ() {
 setGetDelQ()
     .fail(function (err) { throw err; })
     .done();
+````
+
+## Browser
+
+### Basic Usage
+
+The redis-mock object is exported onto the global `window` object as
+`window.redismock`. Example toy usage:
+
+````javascript
+(function () {
+
+    var redis = this.redismock;
+
+    redis.set('key', 'value');
+    console.log(redis.get('key')); // Logs 'value' to the console.
+
+})();
+````
+
+## toPromiseStyle
+
+A convenience function exists on the redismock object to turn all the
+redis commands into a Promise style. This function takes a Factory
+Function that creates deferred objects, e.g., `Q.defer` or
+`jQuery.Deferred`. Example usage:
+
+````javascript
+var Q = require('q');
+var redis = require('redis-js').toPromiseStyle(Q.defer);
+
+function setGetAsPromise() {
+    return redis
+        .set('key', value')
+        .then(function () {
+            return redis.get('key');
+        })
+        .then(function (value) {
+            console.log(value);
+        })
+        .fail(function (err) {
+            // Should not be exercised.
+            console.log(err);
+        })
+        .done();
+}
+setGetAsPromise() // On console, 'value' should be logged.
 ````
 
 ## Testing
