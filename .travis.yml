@@ -4,6 +4,9 @@ node_js:
 - '0.11'
 - '0.10'
 - iojs
+branches:
+  only:
+  - master        
 services:
 - redis-server
 before_install:
@@ -16,6 +19,12 @@ script:
 - npm run implemented
 - npm run unimplemented
 - npm run build-min
+- npm run test-min
+after_success:
+- git fetch --unshallow
+- git add redis-mock-min.map redis-mock-min.js
+- git commit -m 'Auto-generated min files'
+- git push origin master
 deploy:
   provider: npm
   email: wilke.brian@gmail.com

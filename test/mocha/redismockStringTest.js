@@ -267,10 +267,10 @@
             var v = String.fromCharCode(0xFF);
             v += v;
             redismock.set(k, v);
-            expect(redismock.bitpos(k, 0)).to.equal(8);
+            expect(redismock.bitpos(k, 0)).to.equal(16);
             redismock.bitpos(k, 0, function (err, reply) {
                 expect(err).to.not.exist;
-                expect(reply).to.equal(8);
+                expect(reply).to.equal(16);
                 done();
             });
         });
@@ -290,10 +290,10 @@
             var v = String.fromCharCode(0xFF);
             v  = v + v + v;
             redismock.set(k, v);
-            expect(redismock.bitpos(k, 0, 1)).to.equal(16);
+            expect(redismock.bitpos(k, 0, 1)).to.equal(24);
             redismock.bitpos(k, 0, 2, function (err, reply) {
                 expect(err).to.not.exist;
-                expect(reply).to.equal(16);
+                expect(reply).to.equal(24);
                 done();
             });
         });
@@ -309,21 +309,93 @@
                 done();
             });
         });
-        xit('should return -1 for a key that is all 0s, set bit is specified, and start is specified', function (done) {
+        it('should return -1 for a key that is all 0s, set bit is specified, and start is specified', function (done) {
+            var k = randkey();
+            var v = '\0\0\0';
+            redismock.set(k, v);
+            expect(redismock.bitpos(k, 1, 1)).to.equal(-1);
+            redismock.bitpos(k, 1, 2, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal(-1);
+                done();
+            });
         });
-        xit('should return -1 for a key that is all 0s, set bit is specified, and start and end are both specified', function (done) {
-});
-        xit('should return the first 0 position for a key with clear bit specified', function (done) {
+        it('should return -1 for a key that is all 0s, set bit is specified, and start and end are both specified', function (done) {
+            var k = randkey();
+            var v = '\0\0\0\0';
+            redismock.set(k, v);
+            expect(redismock.bitpos(k, 1, 1, 2)).to.equal(-1);
+            redismock.bitpos(k, 1, 2, 3, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal(-1);
+                done();
+            });
         });
-        xit('should return the first 0 position for a key with clear bit specified from start', function (done) {
+        it('should return the first 0 position for a key with clear bit specified', function (done) {
+            var k = randkey();
+            var v = String.fromCharCode(0xFF) + String.fromCharCode(0xCF);
+            redismock.set(k, v);
+            expect(redismock.bitpos(k, 0)).to.equal(10);
+            redismock.bitpos(k, 0, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal(10);
+                done();
+            });
         });
-        xit('should return the first 0 position for a key with clear bit specified between start and end', function (done) {
+        it('should return the first 0 position for a key with clear bit specified from start', function (done) {
+            var k = randkey();
+            var v = String.fromCharCode(0xFF) + String.fromCharCode(0xFF) + String.fromCharCode(0xDF);
+            redismock.set(k, v);
+            expect(redismock.bitpos(k, 0, 1)).to.equal(18);
+            redismock.bitpos(k, 0, 1, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal(18);
+                done();
+            });
         });
-        xit('should return the first 1 position for a key with set bit specified', function (done) {
+        it('should return the first 0 position for a key with clear bit specified between start and end', function (done) {
+            var k = randkey();
+            var v = String.fromCharCode(0xFF) + String.fromCharCode(0xFF) + String.fromCharCode(0xFF) + String.fromCharCode(0xDF) + String.fromCharCode(0xFF);
+            redismock.set(k, v);
+            expect(redismock.bitpos(k, 0, 2, 5)).to.equal(26);
+            redismock.bitpos(k, 0, 1, 4, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal(26);
+                done();
+            });
         });
-        xit('should return the first 1 position for a key with set bit specified from start', function (done) {
+        it('should return the first 1 position for a key with set bit specified', function (done) {
+            var k = randkey();
+            var v = '\0' + String.fromCharCode(0x04);
+            redismock.set(k, v);
+            expect(redismock.bitpos(k, 1)).to.equal(13);
+            redismock.bitpos(k, 1, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal(13);
+                done();
+            });
         });
-        xit('should return the first 1 position for a key with set bit specified between start and end', function (done) {
+        it('should return the first 1 position for a key with set bit specified from start', function (done) {
+            var k = randkey();
+            var v = '\0\0\0' + String.fromCharCode(0x04) + '\0';
+            redismock.set(k, v);
+            expect(redismock.bitpos(k, 1, 1)).to.equal(29);
+            redismock.bitpos(k, 1, 2, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal(29);
+                done();
+            });
+        });
+        it('should return the first 1 position for a key with set bit specified between start and end', function (done) {
+            var k = randkey();
+            var v = '\0\0\0' + String.fromCharCode(0x04) + '\0';
+            redismock.set(k, v);
+            expect(redismock.bitpos(k, 1, 1, 3)).to.equal(29);
+            redismock.bitpos(k, 1, 2, 4, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal(29);
+                done();
+            });
         });
     });
 
@@ -1016,7 +1088,95 @@
     });
 
     describe('setbit', function () {
-        xit('should setbit');
+        it('should return an error for a key that does not map to string', function (done) {
+            var k = randkey();
+            var v = 'value';
+            redismock.lpush(k, v);
+            expect(redismock.setbit(k, 0, 1)).to.be.an.instanceof(Error);
+            redismock.getrange(k, 17, 0, function (err, reply) {
+                expect(err).to.exist;
+                expect(reply).to.not.exist;
+                expect(err).to.be.an.instanceof(Error);
+                expect(err.message.indexOf('WRONGTYPE')).to.be.above(-1);
+                done();
+            });
+        });
+        it('should return an error if value is not a 0 or 1', function (done) {
+            var k = randkey();
+            var v = 'value';
+            redismock.set(k, v);
+            expect(redismock.setbit(k, 5, v)).to.be.an.instanceof(Error);
+            redismock.setbit(k, 22, 2, function (err, reply) {
+                expect(err).to.exist;
+                expect(reply).to.not.exist;
+                expect(err).to.be.an.instanceof(Error);
+                expect(err.message.indexOf('ERR')).to.be.above(-1);
+                done();
+            });
+        });
+        it('should set the bit at the given offset', function (done) {
+            var k = randkey();
+            var v = String.fromCharCode(0xFD) + String.fromCharCode(0xEF) + '\0';
+            redismock.set(k, v);
+            expect(redismock.setbit(k, 6, 1)).to.equal(0);
+            expect(redismock.get(k).charCodeAt(0)).to.equal(0xFF);
+            expect(redismock.setbit(k, 0, 1)).to.equal(1);
+            expect(redismock.get(k).charCodeAt(0)).to.equal(0xFF);
+            redismock.setbit(k, 11, 1, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal(0);
+                expect(redismock.get(k).charCodeAt(1)).to.equal(0xFF);
+                done();
+            });
+        });
+        it('should clear the bit at the given offset', function (done) {
+            var k = randkey();
+            var v = String.fromCharCode(0x04) + String.fromCharCode(0x20) + '\0';
+            redismock.set(k, v);
+            expect(redismock.setbit(k, 5, 0)).to.equal(1);
+            expect(redismock.get(k).charCodeAt(0)).to.equal(0);
+            expect(redismock.setbit(k, 0, 0)).to.equal(0);
+            expect(redismock.get(k).charCodeAt(0)).to.equal(0);
+            redismock.setbit(k, 10, 0, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal(1);
+                expect(redismock.get(k).charCodeAt(1)).to.equal(0);
+                done();
+            });
+        });
+        it('should pad the string out, then set the bit at the given offset', function (done) {
+            var k = randkey();
+            var v = '\0';
+            redismock.set(k, v);
+            expect(redismock.setbit(k, 11, 1)).to.equal(0);
+            expect(redismock.get(k)).to.have.lengthOf(2);
+            expect(redismock.get(k).charCodeAt(1)).to.equal(0x10);
+            redismock.setbit(k, 37, 1, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal(0);
+                expect(redismock.get(k)).to.have.lengthOf(5);
+                expect(redismock.get(k).charCodeAt(4)).to.equal(0x04);
+                done();
+            });
+        });
+        it('should pad the string out, then clear the bit at the given offset', function (done) {
+            var k = randkey();
+            var v = String.fromCharCode(0xFF);
+            redismock.set(k, v);
+            expect(redismock.setbit(k, 11, 0)).to.equal(0);
+            expect(redismock.get(k)).to.have.lengthOf(2);
+            expect(redismock.get(k).charCodeAt(1)).to.equal(0);
+            expect(redismock.setbit(k, 0, 0)).to.equal(1);
+            expect(redismock.get(k)).to.have.lengthOf(2);
+            expect(redismock.get(k).charCodeAt(0)).to.equal(0x7F);
+            redismock.setbit(k, 37, 0, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal(0);
+                expect(redismock.get(k)).to.have.lengthOf(5);
+                expect(redismock.get(k).charCodeAt(4)).to.equal(0);
+                done();
+            });
+        });
     });
 
     describe('setex', function () {

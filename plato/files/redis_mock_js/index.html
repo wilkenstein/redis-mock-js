@@ -45,11 +45,11 @@
   <div class="row">
     <div class="col-md-6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">71.86</p>
+      <p class="stat">71.40</p>
     </div>
     <div class="col-md-6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">2250</p>
+      <p class="stat">2389</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="col-md-6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">234.50</p>
+      <p class="stat">245.61</p>
     </div>
     <div class="col-md-6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">27.98</p>
+      <p class="stat">29.71</p>
     </div>
   </div>
 </div>
@@ -146,6 +146,7 @@
     var sets = &#039;sets-&#039; + Math.random();
     var zsets = &#039;zsets-&#039; + Math.random();
     var hashes = &#039;hashes-&#039; + Math.random();
+    //var keys = [];
     cache[sets] = {};
     cache[zsets] = {};
     cache[hashes] = {};
@@ -729,15 +730,84 @@
 
     // Find first bit set or clear in a string.
     redismock.bitpos = function (key, bit, callback) {
-        return cb(callback)(new Error(&#039;UNIMPLEMENTED&#039;));
+        var g = gather(this.bitpos, 3).apply(this, arguments);
+        var start, end;
+        callback = g.callback;
+        if (g.list.length &gt; 1) {
+            start = g.list[1];
+            end = g.list[2];
+        }
+        if (typeof start === &#039;undefined&#039;) {
+            start = 0;
+        }
+        if (bit !== 0 &amp;&amp; bit !== 1) {
+            return cb(callback)(new Error(&#039;ERR The bit argument must be 1 or 0.&#039;));
+        }
+        return this
+            .ifType(key, &#039;string&#039;, callback)
+            .thennx(function () { 
+                if (bit === 0) {
+                    return 0;
+                }
+                return -1;
+            })
+            .thenex(function () {
+                var idx, ch, cnt, noend = false;
+                if (start &lt; 0) {
+                    start = cache[key].length + start;
+                }
+                if (typeof end === &#039;undefined&#039;) {
+                    noend = true;
+                    end = cache[key].length - 1;
+                }
+                if (end &lt; 0) {
+                    end = cache[key].length + end;
+                }
+                if (start &gt; end) {
+                    return -1;
+                }
+                for (idx = start; idx &lt;= end; idx += 1) {
+                    ch = cache[key].charCodeAt(idx);
+                    cnt = 0;
+                    while (cnt &lt; 8) {
+                        if (bit === 0 &amp;&amp; (ch &amp; 0x80) !== 0x80) {
+                            return idx*8 + cnt;
+                        }
+                        if (bit === 1 &amp;&amp; (ch &amp; 0x80) === 0x80) {
+                            return idx*8 + cnt;
+                        }
+                        ch &lt;&lt;= 1;
+                        cnt += 1;
+                    }
+                }
+                if (bit === 1) {
+                    return -1;
+                }
+                if (bit === 0 &amp;&amp; noend) {
+                    return idx*8;
+                }
+                return -1;
+            })
+            .end();
     };
 
     redismock.decr = function (key, callback) {
-        return cb(callback)(new Error(&#039;UNIMPLEMENTED&#039;));
+        return this.decrby(key, 1, callback);
     };
 
     redismock.decrby = function (key, decrement, callback) {
-        return cb(callback)(new Error(&#039;UNIMPLEMENTED&#039;));
+        return this
+            .ifType(key, &#039;string&#039;, callback)
+            .thennx(function () { this.set(key, &#039;0&#039;); })
+            .then(function () {
+                var asInt = parseInt(this.get(key), 10);
+                if (isNaN(asInt)) {
+                    return new Error(&quot;ERR value is not an integer or out of range&quot;);
+                }
+                this.set(key, asInt - decrement);
+                return (asInt - decrement);
+            })
+            .end();
     };
 
     redismock.get = function (key, callback) {
@@ -785,24 +855,51 @@
             .end();
     };
 
+    // Set the string value of a key and return its old value.
     redismock.getset = function (key, value, callback) {
         var prev = this.get(key);
         this.set(key, value);
         return cb(callback)(null, prev);
     };
 
+    // Increment the integer value of a key by one.
     redismock.incr = function (key, callback) {
-        return cb(callback)(new Error(&#039;UNIMPLEMENTED&#039;));
+        return this.incrby(key, 1, callback);
     };
 
+    // Increment the integer value of a key by the given amount.
     redismock.incrby = function (key, increment, callback) {
-        return cb(callback)(new Error(&#039;UNIMPLEMENTED&#039;));
+        return this
+            .ifType(key, &#039;string&#039;, callback)
+            .thennx(function () { this.set(key, &#039;0&#039;); })
+            .then(function () {
+                var asInt = parseInt(this.get(key), 10);
+                if (isNaN(asInt)) {
+                    return new Error(&quot;ERR value is not an integer or out of range&quot;);
+                }
+                this.set(key, asInt + increment);
+                return (asInt + increment);
+            })
+            .end();
     };
 
+    // Increment the float value of a key by the given amount.
     redismock.incrbyfloat = function (key, increment, callback) {
-        return cb(callback)(new Error(&#039;UNIMPLEMENTED&#039;));
+        return this
+            .ifType(key, &#039;string&#039;, callback)
+            .thennx(function () { this.set(key, &#039;0&#039;); })
+            .then(function () {
+                var asInt = parseFloat(this.get(key));
+                if (isNaN(asInt)) {
+                    return new Error(&quot;ERR value is not an integer or out of range&quot;);
+                }
+                this.set(key, asInt + increment);
+                return this.get(key);
+            })
+            .end();
     };
 
+    // Get the values of all the given keys.
     redismock.mget = function (key, callback) {
         var g = gather(this.mget).apply(this, arguments);
         callback = g.callback;
@@ -811,6 +908,7 @@
         }));
     };
 
+    // Set multiple keys to multiple values.
     redismock.mset = function (key, value, callback) {
         var kvs = [];
         var that = this;
@@ -827,6 +925,7 @@
         return cb(callback)(null, &#039;OK&#039;);
     };
 
+    // Set multiple keys to multiple values only if none of the keys exist.
     redismock.msetnx = function (key, value, callback) {
         var kvs = [];
         var that = this;
@@ -848,12 +947,14 @@
         return cb(callback)(null, 1);
     };
 
+    // Set the value and expiration in milliseconds of a key.
     redismock.psetex = function (key, milliseconds, value, callback) {
         this.set(key, value);
         this.pexpire(key, milliseconds);
         return cb(callback)(null, &#039;OK&#039;);
     };
 
+    // Set the string value of a key.
     redismock.set = function (key, value, callback) {
         var nx = false, xx = false, ex = -1, px = -1;
         var g = gather(this.set).apply(this, arguments);
@@ -892,16 +993,52 @@
         return cb(callback)(null, &#039;OK&#039;);
     };
 
+    // Sets or clears the bit at offset in the string value stored at key.
     redismock.setbit = function (key, offset, value, callback) {
-        return cb(callback)(new Error(&#039;UNIMPLEMENTED&#039;));
+        return this
+            .ifType(key, &#039;string&#039;, callback)
+            .thennx(function () {
+                cache[key] = &#039;&#039;;
+            })
+            .then(function () {
+                var byteIdx = Math.floor(offset/8);
+                var bitIdx = offset % 8;
+                var idx, bit, mask;
+                var code;
+                if (value !== 0 &amp;&amp; value !== 1) {
+                    return new Error(&#039;ERR bit is not an integer or out of range&#039;);
+                }
+                while (cache[key].length &lt; byteIdx + 1) {
+                    cache[key] += &#039;\0&#039;;
+                }
+                code = cache[key].charCodeAt(byteIdx);
+                idx = 0;
+                mask = 0x80;
+                while (idx &lt; bitIdx) {
+                    mask &gt;&gt;= 1;
+                    idx += 1;
+                }
+                bit = (code &amp; mask) === 0 ? 0 : 1;
+                if (value === 0) {
+                    code = code &amp; (~mask);
+                }
+                else {
+                    code = code | mask;
+                }
+                cache[key] = cache[key].substr(0, byteIdx) + String.fromCharCode(code) + cache[key].substr(byteIdx + 1);
+                return bit;
+            })
+            .end();
     };
 
+    // Set the value and expiration of a key.
     redismock.setex = function (key, seconds, value, callback) {
         this.set(key, value);
         this.expire(key, seconds);
         return cb(callback)(null, &#039;OK&#039;);
     };
 
+    // Set the value of the key only if the key does not exist.
     redismock.setnx = function (key, value, callback) {
         if (!this.exists(key)) {
             this.set(key, value);
@@ -910,6 +1047,7 @@
         return cb(callback)(null, 0);
     };
     
+    // Overwrite part of the string at key starting at the specified offset.
     redismock.setrange = function (key, offset, value, callback) {
         return this
             .ifType(key, &#039;string&#039;, callback)
@@ -934,6 +1072,7 @@
             .end();
     };
 
+    // Get the length of the value stored in a key.
     redismock.strlen = function (key, callback) {
         if (!this.exists(key)) {
             return cb(callback)(null, 0);
