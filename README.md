@@ -114,9 +114,9 @@ setGetDelQ()
     .done();
 ````
 
-## Browser
+### Browser
 
-### Basic Usage
+#### Basic Usage
 
 The redis-mock object is exported onto the global `window` object as
 `window.redismock`. Example toy usage:
