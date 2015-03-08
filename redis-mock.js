@@ -674,12 +674,10 @@
                 if (start > end) {
                     return -1;
                 }
-                str = cache[key].substring(start, end + 1);
-                len = str.length;
-                for (idx = 0; idx < len; idx += 1) {
-                    ch = str.charCodeAt(idx);
+                for (idx = start; idx < end; idx += 1) {
+                    ch = cache[key].charCodeAt(idx);
                     cnt = 0;
-                    while (ch) {
+                    while (cnt < 8) {
                         if (bit === 0 && (ch & 0x80) !== 0x80) {
                             return idx*8 + cnt;
                         }
@@ -693,8 +691,8 @@
                 if (bit === 1) {
                     return -1;
                 }
-                if (bit === 0 && !noend) {
-                    return idx;
+                if (bit === 0 && noend) {
+                    return idx*8;
                 }
                 return -1;
             })

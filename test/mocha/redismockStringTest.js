@@ -230,7 +230,7 @@
         });
     });
 
-    describe.only('bitpos', function () {
+    describe('bitpos', function () {
         it('should return an error for a key that does not map to string', function (done) {
             var k = randkey();
             var v = 'value';
@@ -274,7 +274,57 @@
                 done();
             });
         });
-        xit('should bitpos');
+        it('should return -1 for a key that is all 0s and set bit is specified', function (done) {
+            var k = randkey();
+            var v = '\0\0';
+            redismock.set(k, v);
+            expect(redismock.bitpos(k, 1)).to.equal(-1);
+            redismock.bitpos(k, 1, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal(-1);
+                done();
+            });
+        });
+        it('should return off the end for a key that is all 1s, clear bit is specified, and only start is specified', function (done) {
+            var k = randkey();
+            var v = String.fromCharCode(0xFF);
+            v  = v + v + v;
+            redismock.set(k, v);
+            expect(redismock.bitpos(k, 0, 1)).to.equal(16);
+            redismock.bitpos(k, 0, 2, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal(16);
+                done();
+            });
+        });
+        it('should return -1 for a key that is all 1s, clear bit is specified, and start and end are both specified', function (done) {
+            var k = randkey();
+            var v = String.fromCharCode(0xFF);
+            v = v + v + v + v;
+            redismock.set(k, v);
+            expect(redismock.bitpos(k, 0, 1, 2)).to.equal(-1);
+            redismock.bitpos(k, 0, 1, 2, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal(-1);
+                done();
+            });
+        });
+        xit('should return -1 for a key that is all 0s, set bit is specified, and start is specified', function (done) {
+        });
+        xit('should return -1 for a key that is all 0s, set bit is specified, and start and end are both specified', function (done) {
+});
+        xit('should return the first 0 position for a key with clear bit specified', function (done) {
+        });
+        xit('should return the first 0 position for a key with clear bit specified from start', function (done) {
+        });
+        xit('should return the first 0 position for a key with clear bit specified between start and end', function (done) {
+        });
+        xit('should return the first 1 position for a key with set bit specified', function (done) {
+        });
+        xit('should return the first 1 position for a key with set bit specified from start', function (done) {
+        });
+        xit('should return the first 1 position for a key with set bit specified between start and end', function (done) {
+        });
     });
 
     describe('decr', function () {
@@ -692,7 +742,7 @@
             var k = randkey();
             expect(redismock.incrby(k, 4)).to.equal(4);
             redismock.del(k);
-            redismock.incr(k, 13, function (err, reply) {
+            redismock.incrby(k, 13, function (err, reply) {
                 expect(err).to.not.exist;
                 expect(reply).to.equal(13);
                 done();
