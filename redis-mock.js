@@ -1088,24 +1088,22 @@
         return this
             .ifType(key, 'list', callback)
             .thenex(function () {
-                var tmpS, tmpE;
                 if (start > cache[key].length - 1) {
                     l = [];
                 }
                 else {
-                    if (start < 0 && end < 0) {
-                        tmpS = cache[key].length + end;
-                        tmpE = cache[key].length + start;
-                        start = tmpS;
-                        end = tmpE;
+                    if (start < 0) {
+                        start = cache[key].length + start;
                     }
-                    if (start >= 0 && end < 0) {
+                    if (end < 0) {
                         end = cache[key].length + end;
                     }
-                    if (end > cache[key].length - 1) {
-                        end = cache[key].length - 1;
+                    if (start > end) {
+                        l = [];
                     }
-                    l = cache[key].slice(start, end + 1);
+                    else {
+                        l = cache[key].slice(start, end + 1);
+                    }
                 }
             })
             .then(function () { return l; })
@@ -2308,7 +2306,7 @@
     // Modifications
     // -------------
 
-    var modifiers = ['del', 'set', 'lpush', 'rpush', 'lpop', 'rpop', 'ltrim', 'sadd', 'srem', 'zadd', 'zrem']; // TODO: Add the rest.
+    var modifiers = ['del', 'set', 'lpush', 'rpush', 'lpop', 'rpop', 'ltrim', 'lset', 'sadd', 'srem', 'zadd', 'zrem']; // TODO: Add the rest.
     var capture = {};
     var fkeys = [];
     for (var key in redismock) {

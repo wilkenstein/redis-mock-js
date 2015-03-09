@@ -334,7 +334,7 @@
             expect(l).to.have.lengthOf(2);
             expect(l[0]).to.equal(v2);
             expect(l[1]).to.equal(v3);
-            redismock.lrange(k, -2, -3, function (err, reply) {
+            redismock.lrange(k, -3, -2, function (err, reply) {
                 expect(err).to.not.exist;
                 expect(reply).to.have.lengthOf(2);
                 expect(reply[0]).to.equal(v1);

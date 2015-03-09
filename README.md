@@ -224,6 +224,8 @@ NOTE: version 0.0.5 will have full support for implemented and unimplemented. Ve
   - HyperLogLog support.
 
 ## Versions
+* 0.0.7-1
+  - lrange fix for negative indices.
 * 0.0.7
   - All string commands implemented.
   - Better unit tests.
