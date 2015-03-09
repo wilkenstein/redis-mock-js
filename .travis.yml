@@ -4,11 +4,12 @@ node_js:
 - '0.11'
 - '0.10'
 - iojs
-branches:
-  only:
-  - master        
+sudo: false
 services:
 - redis-server
+branches:
+  only:
+  - master    
 before_install:
 - "export DISPLAY=:99.0"
 - "sh -e /etc/init.d/xvfb start"
@@ -20,11 +21,3 @@ script:
 - npm run unimplemented
 - npm run build-min
 - npm run test-min
-deploy:
-  provider: npm
-  email: wilke.brian@gmail.com
-  api_key:
-    secure: Cbdq2vyfGZKxbqGst3s9W4IGVjjDu9GfFC0kUx63ddKtj91FUISGdyQYTl4LTcpNANGpcCtg/lBQjTZFwi8a12EEabATLhQTyJpZHGD0T0Gq2p3/UsDV1utIZF+WZHOt6kHUKPm/lccuEm2ThuGSvVwK4gussv8wDp1sN0zI5Ow=
-  on:
-    tags: true
-    repo: wilkenstein/redis-mock-js

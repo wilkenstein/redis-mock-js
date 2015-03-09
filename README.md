@@ -2,6 +2,9 @@
 An in-memory redis-compatible implementation written in pure
 javascript.
 
+### Status
+[![Build Status](https://travis-ci.org/wilkenstein/redis-mock-js.svg?branch=master)](https://travis-ci.org/wilkenstein/redis-mock-js)
+
 ## Installation
 
 ### npm
