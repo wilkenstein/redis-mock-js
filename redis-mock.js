@@ -1264,19 +1264,93 @@
     };
 
     redismock.sdiff = function (key, callback) {
-        return cb(callback)(new Error('UNIMPLEMENTED'));
+        var that = this;
+        var g = gather(this.sdiff).apply(this, arguments);
+        callback = g.callback;
+        if (!g.list.every(function (k) {
+            return that.type(k) === 'set' || that.type(k) === 'none';
+        })) {
+            return wrongType(callback);
+        }
+        return this
+            .ifType(key, 'set', callback)
+            .thennx(function () {
+                return [];
+            })
+            .thenex(function () {
+                return g
+                    .list
+                    .slice(1)
+                    .reduce(function (set, k) {
+                        return that
+                            .smembers(k)
+                            .reduce(function (diff, member) {
+                                var idx = diff.indexOf(member);
+                                if (idx !== -1) {
+                                    diff.splice(idx, 1);
+                                }
+                                return diff;
+                            }, set);
+                    }, this.smembers(g.list[0]));
+            })
+            .end();
     };
     
     redismock.sdiffstore = function (destination, key, callback) {
-        return cb(callback)(new Error('UNIMPLEMENTED'));
+        var g = gather(this.sdiffstore).apply(this, arguments);
+        var diff = this.sdiff.apply(this, g.list);
+        callback = g.callback;
+        if (diff instanceof Error) {
+            return cb(callback)(diff);
+        }
+        if (this.exists(destination)) {
+            this.del(destination);
+        }
+        this.sadd.apply(this, [destination].concat(diff));
+        return cb(callback)(null, diff.length);
     };
 
     redismock.sinter = function (key, callback) {
-        return cb(callback)(new Error('UNIMPLEMENTED'));
+        var that = this;
+        var g = gather(this.sdiff).apply(this, arguments);
+        callback = g.callback;
+        if (!g.list.every(function (k) {
+            return that.type(k) === 'set' || that.type(k) === 'none';
+        })) {
+            return wrongType(callback);
+        }
+        return this
+            .ifType(key, 'set', callback)
+            .thennx(function () {
+                return [];
+            })
+            .thenex(function () {
+                return g
+                    .list
+                    .slice(1)
+                    .reduce(function (set, k) {
+                        return that
+                            .smembers(k)
+                            .filter(function (member) {
+                                return set.indexOf(member) !== -1;
+                            });
+                    }, this.smembers(g.list[0]));
+            })
+            .end();
     };
 
     redismock.sinterstore = function (destination, key, callback) {
-        return cb(callback)(new Error('UNIMPLEMENTED'));
+        var g = gather(this.sinterstore).apply(this, arguments);
+        var inter = this.sinter.apply(this, g.list);
+        callback = g.callback;
+        if (inter instanceof Error) {
+            return cb(callback)(inter);
+        }
+        if (this.exists(destination)) {
+            this.del(destination);
+        }
+        this.sadd.apply(this, [destination].concat(inter));
+        return cb(callback)(null, inter.length);
     };
 
     redismock.sismember = function (key, member, callback) {
@@ -1375,15 +1449,83 @@
     };
 
     redismock.sunion = function (key, callback) {
-        return cb(callback)(new Error('UNIMPLEMENTED'));
+        var that = this;
+        var g = gather(this.sdiff).apply(this, arguments);
+        callback = g.callback;
+        if (!g.list.every(function (k) {
+            return that.type(k) === 'set' || that.type(k) === 'none';
+        })) {
+            return wrongType(callback);
+        }
+        return this
+            .ifType(key, 'set', callback)
+            .thennx(function () {
+                return [];
+            })
+            .thenex(function () {
+                return g
+                    .list
+                    .slice(1)
+                    .reduce(function (set, k) {
+                        return set
+                            .concat(that
+                                    .smembers(k)
+                                    .filter(function (member) {
+                                        return set.indexOf(member) === -1;
+                                    }));
+                    }, this.smembers(g.list[0]));
+            })
+            .end();
     };
 
     redismock.sunionstore = function (destination, key, callback) {
-        return cb(callback)(new Error('UNIMPLEMENTED'));
+        var g = gather(this.sunionstore).apply(this, arguments);
+        var union = this.sunion.apply(this, g.list);
+        callback = g.callback;
+        if (union instanceof Error) {
+            return cb(callback)(union);
+        }
+        if (this.exists(destination)) {
+            this.del(destination);
+        }
+        this.sadd.apply(this, [destination].concat(union));
+        return cb(callback)(null, union.length);
     };
 
     redismock.sscan = function (key, cursor, callback) {
-        return cb(callback)(new Error('UNIMPLEMENTED'));
+        var g = gather(this.sscan).apply(this, arguments);
+        var count, match;
+        g
+            .list
+            .forEach(function (option, index) {
+                if (option === 'count') {
+                    count = g.list[index + 1];
+                }
+                if (option === 'match') {
+                    match = new RegExp(translate(g.list[index + 1]));
+                }
+            });
+        if (typeof count === 'undefined' || isNaN(parseInt(count, 10))) {
+            count = 10;
+        }
+        callback = g.callback;
+        return this
+            .ifType(key, 'set', callback)
+            .then(function () {
+                var arr = [];
+                this
+                    .smembers(key)
+                    .slice(cursor)
+                    .some(function (member) {
+                        if (typeof match === 'undefined' || member.match(match)) {
+                            arr.push(member);
+                        }
+                        cursor += 1;
+                        return arr.length >= count;
+                    });
+                return [cursor, arr];
+            })
+            .end();
     };
 
     // Sorted Set Commands

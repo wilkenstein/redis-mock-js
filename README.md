@@ -227,6 +227,9 @@ NOTE: version 0.0.5 will have full support for implemented and unimplemented. Ve
   - HyperLogLog support.
 
 ## Versions
+* 0.0.8
+  - Implement all set commands, including sscan.
+  - Unit test all set commands.
 * 0.0.7-1
   - lrange fix for negative indices.
 * 0.0.7
