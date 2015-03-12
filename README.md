@@ -164,11 +164,36 @@ function setGetAsPromise() {
 setGetAsPromise() // On console, 'value' should be logged.
 ````
 
+## Supported Commands
+
+The goal is to have one-to-one feature parity with all redis commands, so that this implementation can simply be dropped into an existing redis-backed codebase. Redis has a lot of commands! Some of them are easy, and some are quite complex.
+
+Version 0.1.0 should have support for almost all redis commands, minus the hyperloglog commands and the key-movement commands, such as migrate.
+
+To find out what commands a particular version of redis-js supports, run the following commands:
+
+````bash
+$ npm run implemented
+$ npm run unimplemented
+````
+
+Theses two commands will print out all the implemented and unimplemented commands, respectively.
+
+NOTE: version 0.0.5 will have full support for implemented and
+unimplemented. Versions <= 0.0.4 do <i>not</i> support these commands
+and will be deprecated at some point.
+
+## Contributing
+
+All contributions welcome! Issues or Pull Requests. For PRs, `npm test`, `npm
+run test-phantomjs`, and `npm run build-min && npm run test-min` must
+all succeed and test the new code before the PR will be considered.
+
 ## Testing
 
 This project uses karma + mocha + chai.
 
-To run the full test suite, issue the standard npm command:
+To run the full test suite from source, issue the standard npm command:
 
 ````bash
 $ npm test
@@ -189,24 +214,28 @@ $ npm run test-ie
 
 These tests use the various karma-*-launcher projects to launch the browsers. If the browser is not installed on the system, the corresponding test command will print an error and hang.
 
-test-phantomjs is the only test command that does not rely on external dependencies. test-phantomjs will install the latest compatible version of phantomjs in a tmp directory, and use that binary to run the tests.
+test-phantomjs is the only test command that does not rely on external
+dependencies. test-phantomjs will install the latest compatible
+version of phantomjs in a tmp directory, and use that binary to run
+the tests.
 
-## Supported Commands
+Creating a test is as easy as adding a new test file in
+`test/mocha/`. In order for the test to run across different
+JavaScript engines, a somewhat specific style is required:
 
-The goal is to have one-to-one feature parity with all redis commands, so that this implementation can simply be dropped into an existing redis-backed codebase. Redis has a lot of commands! Some of them are easy, and some are quite complex.
+````javascript
+(function() {
+    var redismock = typeof require === 'function' ? require('../../redis-mock.js') : window.redismock;
+    if (typeof chai === 'undefined') {
+        var chai = typeof require === 'function' ? require('chai') : window.chai;
+    }
+    chai.config.includeStack = true;
+    var expect = chai.expect;
 
-Version 0.1.0 should have support for almost all redis commands, minus the hyperloglog commands and the key-movement commands, such as migrate.
-
-To find out what commands a particular version of redis-js supports, run the following commands:
-
-````bash
-$ npm run implemented
-$ npm run unimplemented
+    /* Put describe & it blocks here */
+    
+}).call(this);
 ````
-
-Theses two commands will print out all the implemented and unimplemented commands, respectively.
-
-NOTE: version 0.0.5 will have full support for implemented and unimplemented. Versions <= 0.0.4 do <i>not</i> support these commands and will be deprecated at some point.
 
 ## Roadmap
 
@@ -245,13 +274,16 @@ NOTE: version 0.0.5 will have full support for implemented and unimplemented. Ve
   - Added way to see implemented vs unimplemented commands.
   - More unit tests and more implementations.
 * 0.0.4
+  - DEPRECATED
   - Enhanced hash support.
   - Unit tests for hash commands.
 * 0.0.3
+  - DEPRECATED
   - Set, sorted set, and hash support.
   - Unit tests for implemented list, set, and sorted set commands.
   - Bug squashes.
 * 0.0.2
+  - DEPRECATED
   - Transaction support that works.
   - Bug squashes.
   - Enhanced commands.
