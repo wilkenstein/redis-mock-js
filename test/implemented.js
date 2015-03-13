@@ -6,6 +6,14 @@
     chai.config.includeStack = true;
     var expect = chai.expect;
 
+    var blacklist = [
+        'Array',
+        'ifType',
+        'toPromiseStyle',
+        'copy',
+        'toNodeRedis'
+    ];
+
     describe('implemented commands', function () {
         it('prints out all commands that have been implemented', function () {
             var args = [];
@@ -15,10 +23,9 @@
                 args.push(idx);
             }
             for (var key in redismock) {
-                if (key === 'ifType' || key === 'warnings') {
-                    // Intentionally skip non-redis commands.
-                    continue;
-                }
+                if (blacklist.indexOf(key) !== -1) {
+                        continue;
+                    }
                 if (typeof redismock[key] === "function") {
                     err = redismock[key].apply(redismock, args);
                     if (!(err instanceof Error) || err.message !== 'UNIMPLEMENTED') {

@@ -6,6 +6,14 @@
     chai.config.includeStack = true;
     var expect = chai.expect;
 
+    var blacklist = [
+        'Array',
+        'ifType',
+        'toPromiseStyle',
+        'copy',
+        'toNodeRedis'
+    ];
+
     describe('unimplemented commands', function () {
         it('prints out all commands not yet implemented', function () {
             var args = [];
@@ -16,6 +24,9 @@
             }
             for (var key in redismock) {
                 if (typeof redismock[key] === "function") {
+                    if (blacklist.indexOf(key) !== -1) {
+                        continue;
+                    }
                     err = redismock[key].apply(redismock, args);
                     if (err instanceof Error && err.message === 'UNIMPLEMENTED') {
                         console.log(key);
