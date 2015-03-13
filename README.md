@@ -308,6 +308,8 @@ JavaScript engines, a somewhat specific style is required:
   - HyperLogLog support.
 
 ## Versions
+* 0.0.9-2
+  - Bug fix for lpush. In redis, lpush(k, v1, v2) = k: [v2, v1].
 * 0.0.9-1
   - Bug fix on converting redismock to node redis using process env vars.
 * 0.0.9

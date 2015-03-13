@@ -1080,7 +1080,9 @@
             .ifType(key, 'list', callback)
             .thennx(function () { cache[key] = new redismock.Array(); })
             .then(function () {
-                cache[key] = g.list.concat(cache[key]);
+                g.list.forEach(function (elem) {
+                    cache[key].unshift(elem);
+                });
                 return cache[key].length;
             })
             .end();
