@@ -35,7 +35,7 @@
     // but it is non-standard. To standardize, convert
     // setImmediate to its equivalent (mostly) counterpart --
     // setTimeout(f, 0) -- if it is not available.
-    if (!exists(setImmediate) || typeof setImmediate !== 'function') {
+    if (typeof setImmediate === 'undefined' || typeof setImmediate !== 'function') {
         var setImmediate = function (f) {
             setTimeout(f, 0);
         };
@@ -2479,7 +2479,7 @@
                 us = 0;
             }
         }
-        else if (exists(process) && process.hrtime) {
+        else if (typeof process !== 'undefined' && process.hrtime) {
             us = process.hrtime()[1] / 1000;
         }
         else {
@@ -2602,7 +2602,7 @@
         return rc;
     };
 
-    if (exists(process) && process.env.REDIS_JS_TO_NODE_REDIS === '1') {
+    if (typeof process !== 'undefined' && process.env.REDIS_JS_TO_NODE_REDIS === '1') {
         var node_redis_args = [];
         if (process.env.REDIS_JS_NODE_REDIS_PORT) {
             node_redis_args.push(process.env.REDIS_JS_NODE_REDIS_PORT);

@@ -175,7 +175,7 @@ client using the `redis` npm package. This function will do nothing in
 a non-CommonJS environment, and throw an error if the `redis` package
 is not installed. To facilitate automatic switching, the environment
 variable `REDIS_JS_TO_NODE_REDIS` can be set to `1`. If you need to
-connect to specific redis server with specific options, pass the same
+connect to a specific redis server with specific options, pass the same
 arguments to `toNodeRedis` as you would to `redis.createClient`. When
 automatically switching with environment variables, use
 `REDIS_JS_NODE_REDIS_PORT`, `REDIS_JS_NODE_REDIS_HOST`, and

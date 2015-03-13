@@ -45,7 +45,7 @@
   <div class="row">
     <div class="col-md-6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">71.14</p>
+      <p class="stat">71.17</p>
     </div>
     <div class="col-md-6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
@@ -67,7 +67,7 @@
     </div>
     <div class="col-md-6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">33.29</p>
+      <p class="stat">33.30</p>
     </div>
   </div>
 </div>
@@ -127,7 +127,7 @@
     // but it is non-standard. To standardize, convert
     // setImmediate to its equivalent (mostly) counterpart --
     // setTimeout(f, 0) -- if it is not available.
-    if (!exists(setImmediate) || typeof setImmediate !== &#039;function&#039;) {
+    if (typeof setImmediate === &#039;undefined&#039; || typeof setImmediate !== &#039;function&#039;) {
         var setImmediate = function (f) {
             setTimeout(f, 0);
         };
@@ -2571,7 +2571,7 @@
                 us = 0;
             }
         }
-        else if (exists(process) &amp;&amp; process.hrtime) {
+        else if (typeof process !== &#039;undefined&#039; &amp;&amp; process.hrtime) {
             us = process.hrtime()[1] / 1000;
         }
         else {
@@ -2694,7 +2694,7 @@
         return rc;
     };
 
-    if (exists(process) &amp;&amp; process.env.REDIS_JS_TO_NODE_REDIS === &#039;1&#039;) {
+    if (typeof process !== &#039;undefined&#039; &amp;&amp; process.env.REDIS_JS_TO_NODE_REDIS === &#039;1&#039;) {
         var node_redis_args = [];
         if (process.env.REDIS_JS_NODE_REDIS_PORT) {
             node_redis_args.push(process.env.REDIS_JS_NODE_REDIS_PORT);
