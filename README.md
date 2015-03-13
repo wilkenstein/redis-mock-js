@@ -164,6 +164,58 @@ function setGetAsPromise() {
 setGetAsPromise() // On console, 'value' should be logged.
 ````
 
+### toNodeRedis
+
+It seems silly to write a bunch of unit tests using redismock, then
+create a separate path for integration testing against a real redis
+server, no? That's where `toNodeRedis` comes in!
+
+`toNodeRedis` allows you to convert the redismock into an actual redis
+client using the `redis` npm package. This function will do nothing in
+a non-CommonJS environment, and throw an error if the `redis` package
+is not installed. To facilitate automatic switching, the environment
+variable `REDIS_JS_TO_NODE_REDIS` can be set to `1`. If you need to
+connect to specific redis server with specific options, pass the same
+arguments to `toNodeRedis` as you would to `redis.createClient`. When
+automatically switching with environment variables, use
+`REDIS_JS_NODE_REDIS_PORT`, `REDIS_JS_NODE_REDIS_HOST`, and
+`REDIS_JS_NODE_REDIS_OPTIONS`. These environment variables will be
+passed onto `redis.createClient`. `REDIS_JS_NODE_REDIS_OPTIONS` must
+be a valid JSON string, or the script will throw an error.
+
+`toPromiseStyle` is still available on the newly-formed redismock ->
+node redis client, and is compatible with node redis.
+
+Example usage:
+
+````javascript
+var Q = require('q');
+var client = require('redis-js').toNodeRedis().toPromiseStyle(Q.defer);
+
+client
+    .set('k', 'v')
+    .then(function (reply) {
+        console.log(reply);
+        return redis.get('k');
+    })
+    .then(function (reply) {
+        console.log(reply);
+        return redis.del('k');
+    })
+    .then(function (reply) {
+        console.log(reply);
+    })
+    .fail(function (err) {
+        throw err;
+    })
+    .done();
+    
+// Result of this script should be console logs of
+//   'OK'
+//   'v'
+//   1
+````
+
 ## Supported Commands
 
 The goal is to have one-to-one feature parity with all redis commands, so that this implementation can simply be dropped into an existing redis-backed codebase. Redis has a lot of commands! Some of them are easy, and some are quite complex.
@@ -256,6 +308,8 @@ JavaScript engines, a somewhat specific style is required:
   - HyperLogLog support.
 
 ## Versions
+* 0.0.9
+  - Add support for converting redismock to node redis.
 * 0.0.8-1
   - Set diff, inter, and union performance improvements.
   - 1st implementation of load testing.

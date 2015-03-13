@@ -6,15 +6,12 @@
         "url": "git://github.com/wilkenstein/redis-mock-js.git"
     },
     "main": "redis-mock.js",
-    "version": "0.0.8-1",
+    "version": "0.0.9",
     "devDependencies": {
-        "q": "~1.0",
-        "chai": "~2.1",
-        "chance": "0.6.1",
-        "complexity-report": "1.0.2",
-        "docco": "*",
-        "istanbul": "0.3.5",
         "jshint": "2.3.0",
+        "q": "~1.0",
+        "mocha": "1.13.0",
+        "chai": "~2.1",
         "karma": "~0.12",
         "karma-chai": "^0.1.0",
         "karma-firefox-launcher": "~0.1",
@@ -23,11 +20,13 @@
         "karma-safari-launcher": "~0.1",
         "karma-opera-launcher": "~0.1",
         "karma-mocha": "^0.1.10",
-        "mocha": "1.13.0",
+        "istanbul": "0.3.5",
+        "complexity-report": "1.0.2",
         "node-jsmeter": "0.1.2",
         "plato": "0.6.2",
-        "should": "~5.0",
-        "uglify-js": "2.4.x"
+        "uglify-js": "2.4.x",
+        "docco": "*",
+        "redis": "~0.12"
     },
     "scripts": {
         "pretest": "node_modules/.bin/jshint redis-mock.js",
@@ -45,6 +44,7 @@
         "pretest-min": "mv redis-mock.js redis-mock.js.bkp && cp redis-mock-min.js redis-mock.js",
         "test-min": "./node_modules/.bin/_mocha -R spec -t 60s -s 5s test/mocha",
         "posttest-min": "mv redis-mock.js.bkp redis-mock.js",
+        "test-against-redis": "USE_NODE_REDIS=1 ./node_modules/.bin/_mocha -R spec -t 60s -s 5s test/mocha",
         "doc": "docco redis-mock.js"
     },
     "license": "MIT",

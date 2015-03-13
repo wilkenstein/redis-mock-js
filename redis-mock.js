@@ -1,5 +1,5 @@
 /* jshint unused:true, undef:true, strict:true, plusplus:true */
-/* global setTimeout:false, module:false, exports:true, clearTimeout:false */
+/* global setTimeout:false, module:false, exports:true, clearTimeout:false, require:false, process:false */
 
 (function () {
 
@@ -39,11 +39,6 @@
         var setImmediate = function (f) {
             setTimeout(f, 0);
         };
-    }
-
-    // Create the process variable if it does not exist.
-    if (!exists(process)) {
-        var process = {};
     }
 
     redismock.Array = Array;
@@ -2484,7 +2479,7 @@
                 us = 0;
             }
         }
-        else if (process && process.hrtime) {
+        else if (exists(process) && process.hrtime) {
             us = process.hrtime()[1] / 1000;
         }
         else {
@@ -2576,5 +2571,49 @@
                 return promised;
             }, {multi: this.multi});
     };
+
+    redismock.copy = function () {
+        var copied = {};
+        fkeys.forEach(function (key) {
+            copied[key] = redismock[key];
+        });
+        copied.toPromiseStyle = redismock.toPromiseStyle;
+        return copied;
+    };
+
+    redismock.toNodeRedis = function () {
+        if (typeof require !== 'function') {
+            return redismock;
+        }
+        var redis = require('redis');
+        var client = redis.createClient.apply(redis, arguments);
+        var rc = redismock.copy();
+        var key, keys = [];
+        for (key in client) {
+            if (typeof client[key] === 'function') {
+                keys.push(key);
+            }
+        }
+        keys.forEach(function (k) {
+            rc[k] = function () {
+                return client[k].apply(client, arguments);
+            };
+        });
+        return rc;
+    };
+
+    if (exists(process) && process.env.REDIS_JS_TO_NODE_REDIS === '1') {
+        var node_redis_args = [];
+        if (process.env.REDIS_JS_NODE_REDIS_PORT) {
+            node_redis_args.push(process.env.REDIS_JS_NODE_REDIS_PORT);
+        }
+        if (process.env.REDIS_JS_NODE_REDIS_HOST) {
+            node_redis_args.push(process.env.REDIS_JS_NODE_REDIS_HOST);
+        }
+        if (process.env.REDIS_JS_NODE_REDIS_OPTIONS) {
+            node_redis_args.push(JSON.parse(process.env.REDIS_JS_NODE_REDIS_OPTIONS));
+        }
+        redismock = redismock.toNodeRedis.apply(redismock, node_redis_args);
+    }
 
 }).call(this);
