@@ -46,6 +46,8 @@
         var process = {};
     }
 
+    redismock.Array = Array;
+
     // The database.
     var cache = {};
     var timeouts = {};
@@ -216,6 +218,23 @@
                 return cb(callback)(null, ret);
             }
         };
+    };
+
+    var stepthrough = function (arr1, arr2, f) {
+        var idx1 = 0, idx2 = 0, r;
+        while (idx1 < arr1.length && idx2 < arr2.length) {
+            r = f(arr1[idx1], arr2[idx2], idx1, idx2);
+            if (r < 0) {
+                idx1 += 1;
+            }
+            else if (r > 0) {
+                idx2 += 1;
+            }
+            else {
+                idx1 += 1;
+                idx2 += 1;
+            }
+        }
     };
 
     // Keys Commands
@@ -1064,7 +1083,7 @@
         callback = g.callback;
         return this
             .ifType(key, 'list', callback)
-            .thennx(function () { cache[key] = []; })
+            .thennx(function () { cache[key] = new redismock.Array(); })
             .then(function () {
                 cache[key] = g.list.concat(cache[key]);
                 return cache[key].length;
@@ -1155,7 +1174,7 @@
             .thenex(function () {
                 var tmpS, tmpE;
                 if (start > cache[key].length - 1 || start > end) {
-                    cache[key] = [];
+                    cache[key] = new redismock.Array();
                 }
                 else {
                     if (start < 0 && end < 0) {
@@ -1210,7 +1229,7 @@
         callback = g.callback;
         return this
             .ifType(key, 'list', callback)
-            .thennx(function () { cache[key] = []; })
+            .thennx(function () { cache[key] = new redismock.Array(); })
             .then(function () {
                 cache[key] = cache[key].concat(g.list);
                 return cache[key].length;
@@ -1281,17 +1300,20 @@
                 return g
                     .list
                     .slice(1)
-                    .reduce(function (set, k) {
-                        return that
-                            .smembers(k)
-                            .reduce(function (diff, member) {
-                                var idx = diff.indexOf(member);
-                                if (idx !== -1) {
-                                    diff.splice(idx, 1);
-                                }
-                                return diff;
-                            }, set);
-                    }, this.smembers(g.list[0]));
+                    .reduce(function (diff, k) {
+                        var members = that.smembers(k).sort();
+                        stepthrough(diff, members, function (d, m, di) {
+                            if (d < m) {
+                                return -1;
+                            }
+                            if (d > m) {
+                                return 1;
+                            }
+                            diff.splice(di, 1);
+                            return 0;
+                        });
+                        return diff;
+                    }, this.smembers(g.list[0]).sort());
             })
             .end();
     };
@@ -1328,13 +1350,21 @@
                 return g
                     .list
                     .slice(1)
-                    .reduce(function (set, k) {
-                        return that
-                            .smembers(k)
-                            .filter(function (member) {
-                                return set.indexOf(member) !== -1;
-                            });
-                    }, this.smembers(g.list[0]));
+                    .reduce(function (inter, k) {
+                        var result = [];
+                        var members = that.smembers(k).sort();
+                        stepthrough(inter, members, function (i, m) {
+                            if (i < m) {
+                                return -1;
+                            }
+                            if (i > m) {
+                                return 1;
+                            }
+                            result.push(i);
+                            return 0;
+                        });
+                        return result;
+                    }, this.smembers(g.list[0]).sort());
             })
             .end();
     };
@@ -1466,14 +1496,32 @@
                 return g
                     .list
                     .slice(1)
-                    .reduce(function (set, k) {
-                        return set
-                            .concat(that
-                                    .smembers(k)
-                                    .filter(function (member) {
-                                        return set.indexOf(member) === -1;
-                                    }));
-                    }, this.smembers(g.list[0]));
+                    .reduce(function (union, k) {
+                        var result = [];
+                        var members = that.smembers(k);
+                        var dupes = [];
+                        union = union.concat(members).sort();
+                        stepthrough(union, union, function (u1, u2, i1, i2) {
+                            if (i1 === i2) {
+                                return 1;
+                            }
+                            if (u1 === u2) {
+                                dupes.push(i2);
+                            }
+                            return 0;
+                        });
+                        if (dupes.length) {
+                            stepthrough(union, dupes, function (u, du, iu) {
+                                if (iu === du) {
+                                    return 0;
+                                }
+                                result.push(u);
+                                return -1;
+                            });
+                            result = result.concat(union.slice(dupes[dupes.length - 1] + 1));
+                        }
+                        return result;
+                    }, this.smembers(g.list[0]).sort());
             })
             .end();
     };
@@ -1556,7 +1604,7 @@
                         var noop = false;
                         if (!cache[zsets][key].set[score]) {
                             cache[zsets][key].scores.push(score);
-                            cache[zsets][key].set[score] = [];
+                            cache[zsets][key].set[score] = new redismock.Array();
                         }
                         cache[zsets][key]
                             .scores
@@ -1828,7 +1876,7 @@
                             }
                             if (cache[zsets][key].set[score].length === 0) {
                                 cache[zsets][key].scores.splice(cache[zsets][key].scores.indexOf(score), 1);
-                                cache[zsets][key].set[score] = [];
+                                cache[zsets][key].set[score] = new redismock.Array();
                             }
                         });
                 });
@@ -2448,7 +2496,7 @@
     // Modifications
     // -------------
 
-    var modifiers = ['del', 'set', 'lpush', 'rpush', 'lpop', 'rpop', 'ltrim', 'lset', 'sadd', 'srem', 'zadd', 'zrem']; // TODO: Add the rest.
+    var modifiers = ['del', 'set', 'lpush', 'rpush', 'lpop', 'rpop', 'ltrim', 'lset', 'sadd', 'sdiffstore', 'sinterstore', 'srem', 'sunionstore', 'zadd', 'zrem']; // TODO: Add the rest.
     var capture = {};
     var fkeys = [];
     for (var key in redismock) {

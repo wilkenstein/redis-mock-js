@@ -7,6 +7,7 @@
     var expect = chai.expect;
 
     var ignorekeys = [
+        'Array',
         'ifType',
         'randomkey',
         'multi',

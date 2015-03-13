@@ -256,6 +256,9 @@ JavaScript engines, a somewhat specific style is required:
   - HyperLogLog support.
 
 ## Versions
+* 0.0.8-1
+  - Set diff, inter, and union performance improvements.
+  - 1st implementation of load testing.
 * 0.0.8
   - Implement all set commands, including sscan.
   - Unit test all set commands.
