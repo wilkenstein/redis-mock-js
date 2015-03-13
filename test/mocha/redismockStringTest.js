@@ -1072,7 +1072,7 @@
                 done();
             }, 1800);
         });
-        it('should set and expire a key in milliseconds if the px option is given', function (done) {
+        it('should set and expire a key in milliseconds if the ex option is given', function (done) {
             this.timeout(5000);
             var k = randkey();
             var v = 'value';

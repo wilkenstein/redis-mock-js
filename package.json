@@ -44,7 +44,6 @@
         "pretest-min": "mv redis-mock.js redis-mock.js.bkp && cp redis-mock-min.js redis-mock.js",
         "test-min": "./node_modules/.bin/_mocha -R spec -t 60s -s 5s test/mocha",
         "posttest-min": "mv redis-mock.js.bkp redis-mock.js",
-        "test-against-redis": "USE_NODE_REDIS=1 ./node_modules/.bin/_mocha -R spec -t 60s -s 5s test/mocha",
         "doc": "docco redis-mock.js"
     },
     "license": "MIT",
