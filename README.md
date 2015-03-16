@@ -171,7 +171,7 @@ create a separate path for integration testing against a real redis
 server, no? That's where `toNodeRedis` comes in!
 
 `toNodeRedis` allows you to convert the redismock into an actual redis
-client using the [https://github.com/mranney/node_redis](node_redis) package. This function will do nothing in
+client using the [node_redis](https://github.com/mranney/node_redis) package. This function will do nothing in
 a non-CommonJS environment, and throw an error if the `redis` package
 is not installed. To facilitate automatic switching, the environment
 variable `REDIS_JS_TO_NODE_REDIS` can be set to `1`. If you need to
