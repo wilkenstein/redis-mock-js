@@ -1610,7 +1610,30 @@
     };
 
     redismock.zincrby = function (key, increment, member, callback) {
-        return cb(callback)(new Error('UNIMPLEMENTED'));
+        return this
+            .ifType(key, 'zset', callback)
+            .thennx(function () { cache[zsets][key] = {scores: [], set: {}}; })
+            .then(function () {
+                var scoreIdx = -1, setIdx = -1, newScore, score;
+                cache[zsets][key]
+                    .scores
+                    .some(function (s, idx) {
+                        setIdx = cache[zsets][key].set[s].indexOf(member);
+                        if (setIdx !== -1) {
+                            scoreIdx = idx;
+                            score = s;
+                            return true;
+                        }
+                    });
+                if (scoreIdx === -1) {
+                    this.zadd(key, increment, member);
+                    return increment;
+                }
+                newScore = cache[zsets][key].scores[scoreIdx] + increment;
+                this.zadd(key, newScore, member);
+                return newScore;
+            })
+            .end();
     };
 
     redismock.zinterstore = function (destination, numkeys, key, callback) {
@@ -1690,11 +1713,58 @@
     };
 
     redismock.zrangebylex = function (key, min, max, callback) {
-        return cb(callback)(new Error('UNIMPLEMENTED'));
+        function verify(r) {
+            return r.charAt(0) === '(' || r.charAt(0) === '[' || r.charAt(0) === '-' || r.charAt(0) === '+';
+        }
+        if (!verify(min) || !verify(max)) {
+            return cb(callback)(new Error('ERR min or max not valid string range item'));
+        }
+        return this
+            .ifType(key, 'zset', callback)
+            .thennx(function () { return []; })
+            .thenex(function () {
+                var minStr = min.substr(1), maxStr = max.substr(1);
+                var minInclusive = (min.charAt(0) === '['), maxInclusive = (max.charAt(0) === '[');
+                var maxAll = (max.charAt(0) === '+');
+                var range = [];
+                if (min.charAt(0) === '+') {
+                    return [];
+                }
+                if (max.charAt(0) === '-') {
+                    return [];
+                }
+                cache[zsets][key]
+                    .scores
+                    .forEach(function (score) {
+                        cache[zsets][key]
+                            .set[score]
+                            .forEach(function (member) {
+                                if (member > minStr && (member < maxStr || maxAll)) {
+                                    range.push(member);
+                                }
+                                else if (member === minStr && minInclusive) {
+                                    range.push(member);
+                                }
+                                else if (member === maxStr && maxInclusive) {
+                                    range.push(member);
+                                }
+                            });
+                    });
+                range.sort(function (a, b) {
+                    return a.localeCompare(b);
+                });
+                return range;
+            })
+            .end();
     };
 
     redismock.zrevrangebylex = function (key, max, min, callback) {
-        return cb(callback)(new Error('UNIMPLEMENTED'));
+        var r = this
+            .zrangebylex(key, min, max);
+        if (r instanceof Error) {
+            return cb(callback)(r);
+        }
+        return cb(callback)(null, r.reverse());
     };
 
     redismock.zrangebyscore = function (key, min, max, callback) {
@@ -1744,15 +1814,16 @@
                 cache[zsets][key]
                     .scores
                     .some(function (score) {
+                        var memberArr = [], scoreArr = [], concatArr = [];
                         cache[zsets][key].set[score].some(function (member) {
                             // TODO: Re-work to scan scores to the right score, then start there.
                             if (((minInclusive && min <= score) || (!minInclusive && min < score)) && ((maxInclusive && score <= max) || (!maxInclusive && score < max))) {
                                 if (limitOffset !== -1 && offset >= limitOffset) {
                                     if (limitCount !== -1) {
-                                        if (arr.length < limitCount) {
-                                            arr.push(member);
+                                        if (arr.length + memberArr.length < limitCount) {
+                                            memberArr.push(member);
                                             if (withscores) {
-                                                arr.push(score);
+                                                scoreArr.push(score);
                                             }
                                         }
                                         else {
@@ -1761,15 +1832,27 @@
                                     }
                                 }
                                 else {
-                                    arr.push(member);
+                                    memberArr.push(member);
                                     if (withscores) {
-                                        arr.push(score);
+                                        scoreArr.push(score);
                                     }
                                 }
                             }
                             offset += 1;
                             return false;
                         });
+                        memberArr.sort(function (a, b) {
+                            return a.localeCompare(b);
+                        });
+                        if (withscores) {
+                            memberArr.forEach(function (m, idx) {
+                                concatArr.push(m, scoreArr[idx]);
+                            });
+                        }
+                        else {
+                            concatArr = memberArr;
+                        }
+                        arr = arr.concat(concatArr);
                         if (limitCount !== -1 && arr.length === limitCount) {
                             return true;
                         }
@@ -1822,7 +1905,7 @@
                             }
                             if (cache[zsets][key].set[score].length === 0) {
                                 cache[zsets][key].scores.splice(cache[zsets][key].scores.indexOf(score), 1);
-                                cache[zsets][key].set[score] = new redismock.Array();
+                                cache[zsets][key].set[score] = undefined;
                             }
                         });
                 });
@@ -1843,11 +1926,96 @@
     };
 
     redismock.zrevrange = function (key, start, stop, callback) {
-        return cb(callback)(new Error('UNIMPLEMENTED'));
+        var withscores = false;
+        if (typeof callback !== "function" && callback === "withscores") {
+            withscores = true;
+            callback = arguments[4];
+        }
+        if (start < 0) {
+            start = this.zcard(key) + start;
+        }
+        if (stop < 0) {
+            stop = this.zcard(key) + stop;
+        }
+        return this
+            .ifType(key, 'zset', callback)
+            .thenex(function () {
+                var startScoreIdx = 0, idx = 0;
+                var range = [];
+                cache[zsets][key]
+                    .scores
+                    .some(function (score) {
+                        if (idx <= start && idx + cache[zsets][key].set[score].length > start) {
+                            return true;
+                        }
+                        idx += cache[zsets][key].set[score].length;
+                        startScoreIdx += 1;
+                        return false;
+                    });
+                cache[zsets][key]
+                    .scores
+                    .slice(startScoreIdx)
+                    .some(function (score) {
+                        var arr = [];
+                        var len = cache[zsets][key].set[score].length;
+                        var from = 0, to = 0;
+                        if (idx > stop) {
+                            return true;
+                        }
+                        while (idx < start) {
+                            idx += 1;
+                            from += 1;
+                        }
+                        to = from + 1;
+                        while (idx <= stop && to <= len) {
+                            idx += 1;
+                            to += 1;
+                        }
+                        arr = cache[zsets][key].set[score].slice(from, to);
+                        arr.sort(function (a, b) {
+                            return b.localeCompare(a);
+                        });
+                        if (withscores) {
+                            arr = arr
+                                .map(function (e) {
+                                    return [e, score];
+                                })
+                                .reduce(function (flat, es) {
+                                    return flat.concat(es);
+                                }, []);
+                        }
+                        range = range.concat(arr);
+                        return false;
+                    });
+                return range;
+            })
+            .thennx(function () { return []; })
+            .end();
     };
 
     redismock.zrevrangebyscore = function (key, max, min, callback) {
-        return cb(callback)(new Error('UNIMPLEMENTED'));
+        var g = gather(this.zrevrangebyscore, 2).apply(this, arguments);
+        var r, tmpM;
+        callback = g.callback;
+        tmpM = g.list[1];
+        g.list[1] = g.list[2];
+        g.list[2] = tmpM;
+        r = this.zrangebyscore.apply(this, g.list);
+        if (r instanceof Error) {
+            return cb(callback)(r);
+        }
+        r.reverse();
+        if (g.list.some(function (arg) {
+            return arg === 'withscores';
+        })) {
+            r = r.map(function (e, idx) {
+                if (idx % 2 === 0) {
+                    return r[idx + 1];
+                }
+                return r[idx - 1];
+            });
+        }
+        return cb(callback)(null, r);
     };
 
     redismock.zrevrank = function (key, member, callback) {
@@ -1894,7 +2062,7 @@
             .thenex(function () {
                 g.list.forEach(function (field) {
                     if (field in cache[hashes][key]) {
-                        delete cache[hashes][key][field];
+                        cache[hashes][key][field] = undefined;
                         count += 1;
                     }
                 });
@@ -1909,7 +2077,7 @@
     redismock.hexists = function (key, field,  callback) {
         return this
             .ifType(key, 'hash', callback)
-            .thenex(function () { return field in cache[hashes][key] ? 1 : 0; })
+            .thenex(function () { return cache[hashes][key][field] !== undefined ? 1 : 0; })
             .thennx(function () { return 0; })
             .end();
     };
@@ -1951,7 +2119,13 @@
     redismock.hkeys = function (key, callback) {
         return this
             .ifType(key, 'hash', callback)
-            .thenex(function () { return Object.keys(cache[hashes][key]); })
+            .thenex(function () { 
+                return Object
+                    .keys(cache[hashes][key])
+                    .filter(function (f) {
+                        return cache[hashes][key][f] !== undefined;
+                    });
+            })
             .thennx(function () { return []; })
             .end();
     };
@@ -2013,7 +2187,7 @@
         return this
             .ifType(key, 'hash', callback)
             .thenex(function () {
-                if (field in cache[hashes][key]) {
+                if (field in cache[hashes][key] && cache[hashes][key][field] !== undefined) {
                     ret = 0;
                 }
                 else {
@@ -2036,7 +2210,7 @@
         return this
             .ifType(key, 'hash', callback)
             .thenex(function () {
-                if (field in cache[hashes][key]) {
+                if (field in cache[hashes][key] && cache[hashes][key][field] !== undefined) {
                     ret = 0;
                     return;
                 }
@@ -2066,6 +2240,9 @@
             .thenex(function () {
                 vals = Object
                     .keys(cache[hashes][key])
+                    .filter(function (field) {
+                        return cache[hashes][key][field] !== undefined;
+                    })
                     .map(function (field) {
                         return cache[hashes][key][field];
                     });
