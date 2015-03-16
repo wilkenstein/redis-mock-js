@@ -171,7 +171,7 @@ create a separate path for integration testing against a real redis
 server, no? That's where `toNodeRedis` comes in!
 
 `toNodeRedis` allows you to convert the redismock into an actual redis
-client using the `redis` npm package. This function will do nothing in
+client using the [https://github.com/mranney/node_redis](node_redis) package. This function will do nothing in
 a non-CommonJS environment, and throw an error if the `redis` package
 is not installed. To facilitate automatic switching, the environment
 variable `REDIS_JS_TO_NODE_REDIS` can be set to `1`. If you need to
@@ -308,6 +308,8 @@ JavaScript engines, a somewhat specific style is required:
   - HyperLogLog support.
 
 ## Versions
+* 0.0.9-3
+  - Set time & space improvements.
 * 0.0.9-2
   - Bug fix for lpush. In redis, lpush(k, v1, v2) = k: [v2, v1].
 * 0.0.9-1
