@@ -238,7 +238,8 @@
             var v1 = 'value', v2 = 'v2', v3 = 'v3';
             expect(redismock.lpush(k, v1, v2)).to.equal(2);
             expect(redismock.llen(k)).to.equal(2);
-            expect(redismock.lindex(k, 0)).to.equal(v1);
+            expect(redismock.lindex(k, 0)).to.equal(v2);
+            expect(redismock.lindex(k, 1)).to.equal(v1);
             redismock.lpush(k, v3, function (err, reply) {
                 expect(err).to.not.exist;
                 expect(reply).to.equal(3);
@@ -614,7 +615,7 @@
         it('should pop from the right and push to the left between source and destination', function (done) {
             var k1 = randkey(), k2 = randkey();
             var v = 'v', nv = 'nv';
-            redismock.lpush(k1, v, nv);
+            redismock.rpush(k1, v, nv);
             redismock.lpush(k2, v, nv);
             expect(redismock.rpoplpush(k1, k2)).to.equal(nv);
             expect(redismock.llen(k2)).to.equal(3);

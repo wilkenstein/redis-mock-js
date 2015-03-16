@@ -64,6 +64,25 @@
                 })
                 .done();
         });
+        it('should honor all redis commands', function (done) {
+            var k1 = randkey(), k2 = randkey();
+            var v = 'v';
+            var prc = redismock.toPromiseStyle(Q.defer);
+            prc
+                .sadd(k1, v)
+                .then(function (reply) {
+                    expect(reply).to.equal(1);
+                    return prc.smove(k1, k2, v);
+                })
+                .then(function (reply) {
+                    expect(reply).to.equal(1);
+                    done();
+                })
+                .fail(function (err) {
+                    done(err);
+                })
+                .done();
+        });
     });
 
 }).call(this);

@@ -1080,7 +1080,9 @@
             .ifType(key, 'list', callback)
             .thennx(function () { cache[key] = new redismock.Array(); })
             .then(function () {
-                cache[key] = g.list.concat(cache[key]);
+                g.list.forEach(function (elem) {
+                    cache[key].unshift(elem);
+                });
                 return cache[key].length;
             })
             .end();
@@ -2569,6 +2571,7 @@
     };
 
     if (typeof process !== 'undefined' && process.env.REDIS_JS_TO_NODE_REDIS === '1') {
+        var asNodeRedis;
         var node_redis_args = [];
         if (process.env.REDIS_JS_NODE_REDIS_PORT) {
             node_redis_args.push(process.env.REDIS_JS_NODE_REDIS_PORT);
@@ -2579,7 +2582,16 @@
         if (process.env.REDIS_JS_NODE_REDIS_OPTIONS) {
             node_redis_args.push(JSON.parse(process.env.REDIS_JS_NODE_REDIS_OPTIONS));
         }
-        redismock = redismock.toNodeRedis.apply(redismock, node_redis_args);
+        asNodeRedis = redismock.toNodeRedis.apply(redismock, node_redis_args);
+        if (typeof exports !== 'undefined') {
+            if (typeof module !== 'undefined' && module.exports) {
+                exports = module.exports = asNodeRedis;
+            }
+            exports.redismock = asNodeRedis;
+        } 
+        else {
+            root.redismock = asNodeRedis;
+        }
     }
 
 }).call(this);
