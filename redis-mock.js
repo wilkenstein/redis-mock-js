@@ -215,23 +215,6 @@
         };
     };
 
-    var stepthrough = function (arr1, arr2, f) {
-        var idx1 = 0, idx2 = 0, r;
-        while (idx1 < arr1.length && idx2 < arr2.length) {
-            r = f(arr1[idx1], arr2[idx2], idx1, idx2);
-            if (r < 0) {
-                idx1 += 1;
-            }
-            else if (r > 0) {
-                idx2 += 1;
-            }
-            else {
-                idx1 += 1;
-                idx2 += 1;
-            }
-        }
-    };
-
     // Keys Commands
     // -------------
 
