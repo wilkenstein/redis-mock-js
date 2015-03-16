@@ -1714,7 +1714,7 @@
 
     redismock.zrangebylex = function (key, min, max, callback) {
         function verify(r) {
-            return r.charAt(0) === '(' || r.charAt(0) === '[' || r.charAt(0) === '-' || r.charAt(0) === '+';
+            return typeof r === 'string' && (r.charAt(0) === '(' || r.charAt(0) === '[' || r.charAt(0) === '-' || r.charAt(0) === '+');
         }
         if (!verify(min) || !verify(max)) {
             return cb(callback)(new Error('ERR min or max not valid string range item'));
