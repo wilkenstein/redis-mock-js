@@ -1260,7 +1260,7 @@
                         return;
                     }
                     if (!(m in cache[sets][key])) {
-                        cache[sets][key][m] = m;
+                        cache[sets][key][m] = '';
                         count += 1;
                     }
                 });
@@ -1296,19 +1296,10 @@
                     .list
                     .slice(1)
                     .reduce(function (diff, k) {
-                        var members = that.smembers(k).sort();
-                        stepthrough(diff, members, function (d, m, di) {
-                            if (d < m) {
-                                return -1;
-                            }
-                            if (d > m) {
-                                return 1;
-                            }
-                            diff.splice(di, 1);
-                            return 0;
+                        return diff.filter(function (d) {
+                            return !(d in cache[sets][k]);
                         });
-                        return diff;
-                    }, this.smembers(g.list[0]).sort());
+                    }, this.smembers(g.list[0]));
             })
             .end();
     };
@@ -1346,20 +1337,10 @@
                     .list
                     .slice(1)
                     .reduce(function (inter, k) {
-                        var result = [];
-                        var members = that.smembers(k).sort();
-                        stepthrough(inter, members, function (i, m) {
-                            if (i < m) {
-                                return -1;
-                            }
-                            if (i > m) {
-                                return 1;
-                            }
-                            result.push(i);
-                            return 0;
+                        return inter.filter(function (i) {
+                            return i in cache[sets][k];
                         });
-                        return result;
-                    }, this.smembers(g.list[0]).sort());
+                    }, this.smembers(g.list[0]));
             })
             .end();
     };
@@ -1441,11 +1422,11 @@
                 if (count) {
                     randos = [];
                     for (idx = 0; idx < Math.abs(count); idx += 1) {
-                        randos.push(cache[sets][key][k[Math.floor(Math.random() * k.length)]]);
+                        randos.push(k[Math.floor(Math.random() * k.length)]);
                     }
                     return randos;
                 }
-                return cache[sets][key][k[Math.floor(Math.random() * k.length)]];
+                return k[Math.floor(Math.random() * k.length)];
             })
             .thennx(function () { return null; })
             .end();
@@ -1488,35 +1469,20 @@
                 return [];
             })
             .thenex(function () {
-                return g
-                    .list
-                    .slice(1)
-                    .reduce(function (union, k) {
-                        var result = [];
-                        var members = that.smembers(k);
-                        var dupes = [];
-                        union = union.concat(members).sort();
-                        stepthrough(union, union, function (u1, u2, i1, i2) {
-                            if (i1 === i2) {
-                                return 1;
-                            }
-                            if (u1 === u2) {
-                                dupes.push(i2);
-                            }
-                            return 0;
-                        });
-                        if (dupes.length) {
-                            stepthrough(union, dupes, function (u, du, iu) {
-                                if (iu === du) {
-                                    return 0;
-                                }
-                                result.push(u);
-                                return -1;
-                            });
-                            result = result.concat(union.slice(dupes[dupes.length - 1] + 1));
-                        }
-                        return result;
-                    }, this.smembers(g.list[0]).sort());
+                return Object
+                    .keys(g
+                          .list
+                          .reduce(function (set, k) {
+                              Object
+                                  .keys(cache[sets][k])
+                                  .filter(function (u) {
+                                      return !(u in set);
+                                  })
+                                  .forEach(function (u) {
+                                      set[u] = '';
+                                  });
+                              return set;
+                          }, {}));
             })
             .end();
     };
