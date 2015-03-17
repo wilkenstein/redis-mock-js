@@ -56,9 +56,20 @@
     "keywords": [
         "redis",
         "mock",
+        "mock-redis",
         "redis mock",
         "redis testing",
+        "redis test",
+        "test redis",
         "in-memory",
-        "redis in-memory"
+        "redis in-memory",
+        "redis fake",
+        "redis-js",
+        "redis js",
+        "redisjs",
+        "redis standalone",
+        "cache",
+        "redis cache",
+        "in-memory cache"
     ]
 }
