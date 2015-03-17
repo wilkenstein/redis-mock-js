@@ -243,7 +243,7 @@ all succeed and test the new code before the PR will be considered.
 
 ## Testing
 
-This project uses karma + mocha + chai.
+This project uses [karma](http://karma-runner.github.io/0.12/index.html) + [mocha](http://mochajs.org) + [chai](http://chaijs.com).
 
 To run the full test suite from source, issue the standard npm command:
 
