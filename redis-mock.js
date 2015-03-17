@@ -2007,15 +2007,61 @@
     };
 
     redismock.zremrangebylex = function (key, min, max, callback) {
-        return cb(callback)(new Error('UNIMPLEMENTED'));
+        var that = this;
+        var range = this.zrangebylex(key, min, max);
+        if (range instanceof Error) {
+            return cb(callback)(range);
+        }
+        range.forEach(function (member) {
+            that.zrem(key, member);
+        });
+        return cb(callback)(null, range.length);
     };
 
     redismock.zremrangebyrank = function (key, min, max, callback) {
-        return cb(callback)(new Error('UNIMPLEMENTED'));
+        return this
+            .ifType(key, 'zset', callback)
+            .thenex(function () {
+                var that = this;
+                var idx, len = cache[zsets][key].scores.length, jdx, nel;
+                var cnt;
+                var score;
+                var toRem = [];
+                cnt = 0;
+                for (idx = 0; idx < len; idx += 1) {
+                    score = cache[zsets][key].scores[idx];
+                    nel = cache[zsets][key].set[score].length;
+                    for (jdx = 0; jdx < nel; jdx += 1, cnt += 1) {
+                        if (min <= cnt && cnt <= max) {
+                            toRem.push(cache[zsets][key].set[score][jdx]);
+                        }
+                        if (cnt > max) {
+                            break;
+                        }
+                    }
+                    if (cnt > max) {
+                        break;
+                    }
+                }
+                toRem.forEach(function (r) {
+                    that.zrem(r);
+                });
+                return toRem.length;
+            })
+            .thennx(function () { return 0; })
+            .end();
     };
 
     redismock.zremrangebyscore = function (key, min, max, callback) {
-        return cb(callback)(new Error('UNIMPLEMENTED'));
+        var that = this;
+        var range = this.zrangebyscore(key, min, max);
+        if (range instanceof Error) {
+            return cb(callback)(range);
+        }
+        range.forEach(function (member) {
+            that.zrem(key, member);
+        });
+        return cb(callback)(null, range.length);
     };
 
     redismock.zrevrange = function (key, start, stop, callback) {
@@ -2112,7 +2158,22 @@
     };
 
     redismock.zrevrank = function (key, member, callback) {
-        return cb(callback)(new Error('UNIMPLEMENTED'));
+        return this
+            .ifType(key, 'zset', callback)
+            .thenex(function () {
+                var idx, len = cache[zsets][key].scores.length, cnt;
+                var score;
+                cnt = 0;
+                for (idx = len - 1; idx >= 0; idx -= 1, cnt += 1) {
+                    score = cache[zsets][key].scores[idx];
+                    if (cache[zsets][key].set[score].indexOf(member) !== -1) {
+                        return cnt;
+                    }
+                }
+                return null;
+            })
+            .thennx(function () { return null; })
+            .end();
     };
 
     redismock.zscore = function (key, member, callback) {
@@ -2136,7 +2197,105 @@
     };
 
     redismock.zunionstore = function (destination, numkeys, key, callback) {
-        return cb(callback)(new Error('UNIMPLEMENTED'));
+        var that = this;
+        var g = gather(this.zinterstore).apply(this, arguments);
+        var weights = {};
+        var aggregate = 'sum';
+        var union = [], r;
+        callback = g.callback;
+        if (!g.list.slice(0, numkeys).every(function (k) {
+            return that.type(k) === 'zset' || that.type(k) === 'none';
+        })) {
+            return wrongType(callback);
+        }
+        g.list.forEach(function (option, idx) {
+            var index, weightsArray = [];
+            if (option === 'weights') {
+                index = idx + 1;
+                while (g.list[index] !== 'aggregate' && index < g.list.length) {
+                    weightsArray.push(g.list[index]);
+                    index += 1;
+                }
+                weights = weightsArray.reduce(function (hash, weight, i) {
+                    hash[g.list[i]] = weight;
+                    return hash;
+                }, {});
+            }
+            else if (option === 'aggregate') {
+                aggregate = g.list[idx + 1];
+            }
+        });
+        function nestedRange(k) {
+            var range = that.zrange(k, 0, -1, 'withscores');
+            return range
+                .map(function (mors, index) {
+                    var score;
+                    if (index % 2 === 0) {
+                        score = range[index + 1];
+                        if (k in weights) {
+                            score *= weights[k];
+                        }
+                        return [score, mors];
+                    }
+                    return null;
+                })
+                .filter(function (ms) {
+                    return ms !== null;
+                });
+        }
+        function rangeToHash(k) {
+            return nestedRange(k)
+                .reduce(function (hash, ms) {
+                    hash[ms[1]] = ms[0];
+                    return hash;
+                }, {});
+        }
+        union = g
+            .list
+            .slice(1, numkeys)
+            .reduce(function (union, k) {
+                var hash = rangeToHash(k);
+                var hashkeys = Object.keys(hash);
+                hashkeys
+                    .filter(function (u) {
+                        return !(u in union);
+                    })
+                    .forEach(function (u) {
+                        union[u] = hash[u];
+                    });
+                hashkeys
+                    .filter(function (u) {
+                        return u in union;
+                    })
+                    .forEach(function (u) {
+                        if (aggregate === 'min') {
+                            union[u] = Math.min(union[u], hash[u]);
+                        }
+                        else if (aggregate === 'max') {
+                            union[u] = Math.max(union[u], hash[u]);
+                        }
+                        else { // === 'sum'
+                            union[u] += hash[u];
+                        }
+                    });
+                return union;
+            }, rangeToHash(g.list[0]));
+        union = Object
+            .keys(union)
+            .map(function (m) {
+                return [union[m], m];
+            })
+            .reduce(function (unnest, nested) {
+                return unnest.concat(nested);
+            }, []);
+        if (this.exists(destination)) {
+            this.del(destination);
+        }
+        r = this.zadd.apply(this, [destination].concat(union));
+        if (r instanceof Error) {
+            return cb(callback)(r);
+        }
+        return cb(callback)(null, union.length/2);
     };
 
     redismock.zscan = function (key, cursor, callback) {

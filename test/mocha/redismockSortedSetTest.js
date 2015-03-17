@@ -262,6 +262,19 @@
     });
 
     describe('zlexcount', function () {
+        it('should return an error for a key that is not a zset', function (done) {
+            var k = randkey();
+            var v = 'v';
+            redismock.set(k, v);
+            expect(redismock.zlexcount(k, '-', '+')).to.be.an.instanceof(Error);
+            redismock.zlexcount(k, '-', '[c', function (err, reply) {
+                expect(err).to.exist;
+                expect(reply).to.not.exist;
+                expect(err).to.be.an.instanceof(Error);
+                expect(err.message.indexOf('WRONGTYPE')).to.be.above(-1);
+                done();
+            });
+        });
         xit('should zlexcount');
     });
 
@@ -685,7 +698,7 @@
     });
 
     describe('zrank', function () {
-        it('to return an error for a key that is not a zset', function (done) {
+        it('should return an error for a key that is not a zset', function (done) {
             var k = randkey();
             var v = 'v';
             redismock.set(k, v);
@@ -698,7 +711,7 @@
                 done();
             });
         });
-        it('to return nothing for a key that does not exist', function (done) {
+        it('should return nothing for a key that does not exist', function (done) {
             var k = randkey();
             var v = 'v';
             expect(redismock.zrank(k, v)).to.not.exist;
@@ -708,7 +721,7 @@
                 done();
             });
         });
-        it('to get the rank of a member', function (done) {
+        it('should get the rank of a member', function (done) {
             var k = randkey();
             var v = 'v', v1 = 'v1', v2 = 'v2';
             expect(redismock.zadd(k, 0, v, 2, v1, 4, v2)).to.equal(3);
@@ -963,7 +976,42 @@
     });
 
     describe('zrevrank', function () {
-        xit('should zrevrank');
+        it('should return an error for a key that is not a zset', function (done) {
+            var k = randkey();
+            var v = 'v';
+            redismock.set(k, v);
+            expect(redismock.zrevrank(k, v)).to.be.an.instanceof(Error);
+            redismock.zrank(k, v, function (err, reply) {
+                expect(err).to.exist;
+                expect(reply).to.not.exist;
+                expect(err).to.be.an.instanceof(Error);
+                expect(err.message.indexOf('WRONGTYPE')).to.be.above(-1);
+                done();
+            });
+        });
+        it('should return nothing for a key that does not exist', function (done) {
+            var k = randkey();
+            var v = 'v';
+            expect(redismock.zrevrank(k, v)).to.not.exist;
+            redismock.zrank(k, v, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.not.exist;
+                done();
+            });
+        });
+        it('should get the reverse rank of a member', function (done) {
+            var k = randkey();
+            var v = 'v', v1 = 'v1', v2 = 'v2';
+            expect(redismock.zadd(k, 0, v, 2, v1, 4, v2)).to.equal(3);
+            expect(redismock.type(k)).to.equal('zset');
+            expect(redismock.zrevrank(k, v)).to.equal(2);
+            expect(redismock.zrevrank(k, v1)).to.equal(1);
+            redismock.zrevrank(k, v2, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal(0);
+                done();
+            });
+        });
     });
 
     describe('zscore', function () {
@@ -1020,7 +1068,61 @@
     });
 
     describe('zunionstore', function () {
-        xit('should zunionstore');
+        it('should return an error if a key is not a zset', function (done) {
+            var d = randkey(), k1 = randkey(), k2 = randkey(), k3 = randkey();
+            var v = 'v';
+            redismock.set(k1, v);
+            redismock.zadd(k2, 0, v);
+            redismock.set(k3, v);
+            expect(redismock.zunionstore(d, 2, k1, k2)).to.be.an.instanceof(Error);
+            redismock.zunionstore(d, 2, k2, k3, function (err, reply) {
+                expect(err).to.exist;
+                expect(reply).to.not.exist;
+                expect(err).to.be.an.instanceof(Error);
+                expect(err.message.indexOf('WRONGTYPE')).to.be.above(-1);
+                done();
+            });
+        });
+        it('should store a union of 2 zsets into destination', function (done) {
+            var d = randkey(), k1 = randkey(), k2 = randkey();
+            var v1 = 'v1', v2 = 'v2', v3 = 'v3';
+            redismock.zadd(k1, 1, v1, 2, v2, 3, v3);
+            redismock.zadd(k2, 1, v1, 3, v3);
+            expect(redismock.zunionstore(d, 2, k1, k2)).to.equal(3);
+            expect(redismock.exists(d)).to.equal(1);
+            expect(redismock.type(d)).to.equal('zset');
+            var range = redismock.zrange(d, 0, -1, 'withscores');
+            expect(range).to.have.lengthOf(6);
+            expect(range[0]).to.equal(v1);
+            expect(range[1]).to.equal(2);
+            expect(range[2]).to.equal(v2);
+            expect(range[3]).to.equal(2);
+            expect(range[4]).to.equal(v3);
+            expect(range[5]).to.equal(6);
+            redismock.zadd(k2, 2, v2);
+            redismock.zrem(k2, v1, v3);
+            redismock.zunionstore(d, 2, k1, k2, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal(3);
+                range = redismock.zrange(d, 0, -1, 'withscores');
+                expect(range).to.have.lengthOf(6);
+                expect(range[0]).to.equal(v1);
+                expect(range[1]).to.equal(1);
+                expect(range[2]).to.equal(v3);
+                expect(range[3]).to.equal(3);
+                expect(range[4]).to.equal(v2);
+                expect(range[5]).to.equal(4);
+                done();
+            });
+        });
+        xit('should store an inter of N zsets into destination', function (done) {
+        });
+        xit('should weight scores in keys if the weight option is given', function (done) {
+        });
+        xit('should aggregate scores in keys if the aggregate option is given', function (done) {
+        });
+        xit('should weight and aggregate if both options given', function (done) {
+        });
     });
 
     describe('zscan', function () {
