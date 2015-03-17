@@ -1637,11 +1637,100 @@
     };
 
     redismock.zinterstore = function (destination, numkeys, key, callback) {
-        return cb(callback)(new Error('UNIMPLEMENTED'));
+        var that = this;
+        var g = gather(this.zinterstore).apply(this, arguments);
+        var weights = {};
+        var aggregate = 'sum';
+        var inter = [], r;
+        callback = g.callback;
+        if (!g.list.slice(0, numkeys).every(function (k) {
+            return that.type(k) === 'zset' || that.type(k) === 'none';
+        })) {
+            return wrongType(callback);
+        }
+        g.list.forEach(function (option, idx) {
+            var index, weightsArray = [];
+            if (option === 'weights') {
+                index = idx + 1;
+                while (g.list[index] !== 'aggregate' && index < g.list.length) {
+                    weightsArray.push(g.list[index]);
+                    index += 1;
+                }
+                weights = weightsArray.reduce(function (hash, weight, i) {
+                    hash[g.list[i]] = weight;
+                    return hash;
+                }, {});
+            }
+            else if (option === 'aggregate') {
+                aggregate = g.list[idx + 1];
+            }
+        });
+        function nestedRange(k) {
+            var range = that.zrange(k, 0, -1, 'withscores');
+            return range
+                .map(function (mors, index) {
+                    var score;
+                    if (index % 2 === 0) {
+                        score = range[index + 1];
+                        if (k in weights) {
+                            score *= weights[k];
+                        }
+                        return [score, mors];
+                    }
+                    return null;
+                })
+                .filter(function (ms) {
+                    return ms !== null;
+                });
+        }
+        function rangeToHash(k) {
+            return nestedRange(k)
+                .reduce(function (hash, ms) {
+                    hash[ms[1]] = ms[0];
+                    return hash;
+                }, {});
+        }
+        inter = g
+            .list
+            .slice(1, numkeys)
+            .reduce(function (inter, k) {
+                var hash = rangeToHash(k);
+                return inter
+                    .filter(function (ms) {
+                        return ms[1] in hash;
+                    })
+                    .map(function (ms) {
+                        if (aggregate === 'min') {
+                            ms[0] = Math.min(ms[0], hash[ms[1]]);
+                        }
+                        else if (aggregate === 'max') {
+                            ms[0] = Math.max(ms[0], hash[ms[1]]);
+                        }
+                        else { // === 'sum'
+                            ms[0] += hash[ms[1]];
+                        }
+                        return ms;
+                    });
+            }, nestedRange(g.list[0]))
+            .reduce(function (unnest, nested) {
+                return unnest.concat(nested);
+            }, []);
+        if (this.exists(destination)) {
+            this.del(destination);
+        }
+        r = this.zadd.apply(this, [destination].concat(inter));
+        if (r instanceof Error) {
+            return cb(callback)(r);
+        }
+        return cb(callback)(null, inter.length/2);
     };
 
     redismock.zlexcount = function (key, min, max, callback) {
-        return cb(callback)(new Error('UNIMPLEMENTED'));
+        var r = this.zrangebylex(key, min, max);
+        if (r instanceof Error) {
+            return cb(callback)(r);
+        }
+        return cb(callback)(null, r.length);
     };
 
     redismock.zrange = function (key, start, stop, callback) {
@@ -1918,6 +2007,10 @@
     };
 
     redismock.zremrangebylex = function (key, min, max, callback) {
+        return cb(callback)(new Error('UNIMPLEMENTED'));
+    };
+
+    redismock.zremrangebyrank = function (key, min, max, callback) {
         return cb(callback)(new Error('UNIMPLEMENTED'));
     };
 
