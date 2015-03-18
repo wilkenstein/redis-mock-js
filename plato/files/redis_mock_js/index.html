@@ -45,11 +45,11 @@
   <div class="row">
     <div class="col-md-6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">71.07</p>
+      <p class="stat">71.09</p>
     </div>
     <div class="col-md-6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">3006</p>
+      <p class="stat">3002</p>
     </div>
   </div>
   <div class="row historical">
@@ -67,7 +67,7 @@
     </div>
     <div class="col-md-6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">39.38</p>
+      <p class="stat">39.37</p>
     </div>
   </div>
 </div>
@@ -2675,17 +2675,13 @@
     redismock.multi = function () {
         var rc = {};
         var that = this;
-        var err;
         var toApply = [], replies = [];
         Object.keys(this).forEach(function (key) {
             rc[key] = function () {
                 var args = Array.prototype.slice.call(arguments);
-                if (err) {
-                    return;
-                }
                 args.push(function (error, reply) {
                     if (error) {
-                        err = error;
+                        replies.push(error.message);
                     }
                     else {
                         replies.push(reply);
@@ -2709,7 +2705,7 @@
             toApply.forEach(function (apply) {
                 apply[1].apply(apply[2], apply[3]);
             });
-            return cb(callback)(err, replies);
+            return cb(callback)(null, replies);
         };
         return rc;
     };

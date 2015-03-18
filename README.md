@@ -310,6 +310,8 @@ JavaScript engines, a somewhat specific style is required:
   - HyperLogLog support.
 
 ## Versions
+* 0.0.9-5
+  - Fix for multi commands to return errors how redis returns errors on exec.
 * 0.0.9-4
   - Implemented all sorted set commands, but not yet tested.
 * 0.0.9-3
