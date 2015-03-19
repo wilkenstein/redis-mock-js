@@ -43,6 +43,53 @@
 
     redismock.Array = Array;
 
+    function SortedSet() {
+        this.scores = [];
+        this.set = {};
+        this.invset = {};
+        this.card = 0;
+        return this;
+    }
+    SortedSet.prototype.add = function (score, member) {
+        var ret = 1;
+        if (exists(this.invset[member])) {
+            this.rem(member);
+            ret = 0;
+        }
+        if (!exists(this.set[score])) {
+            this.scores.push(score);
+            this.set[score] = [];
+        }
+        this.set[score].push(member);
+        this.invset[member] = score;
+        this.card += 1;
+        return ret;
+    };
+    SortedSet.prototype.rem = function (member) {
+        var score;
+        if (!exists(this.invset[member])) {
+            return 0;
+        }
+        score = this.invset[member];
+        this.set[score].splice(this.set[score].indexOf(member), 1);
+        if (this.set[score].length === 0) {
+            this.set[score] = undefined;
+            this.scores.splice(this.scores.indexOf(score), 1);
+        }
+        this.invset[member] = undefined;
+        this.card -= 1;
+        return 1;
+    };
+    SortedSet.prototype.sortScores = function () {
+        this.scores.sort(function (a, b) {
+            return parseInt(a, 10) - parseInt(b, 10);
+        });
+        return this;
+    };
+    redismock.SortedSet = function () {
+        return new SortedSet();
+    };
+
     // The database.
     var cache = {};
     var timeouts = {};
@@ -1331,6 +1378,7 @@
     };
 
     redismock.sinterstore = function (destination, key, callback) {
+        var that = this;
         var g = gather(this.sinterstore).apply(this, arguments);
         var inter = this.sinter.apply(this, g.list);
         callback = g.callback;
@@ -1340,7 +1388,9 @@
         if (this.exists(destination)) {
             this.del(destination);
         }
-        this.sadd.apply(this, [destination].concat(inter));
+        inter.forEach(function (member) {
+            that.sadd(destination, member);
+        });
         return cb(callback)(null, inter.length);
     };
 
@@ -1473,6 +1523,7 @@
     };
 
     redismock.sunionstore = function (destination, key, callback) {
+        var that = this;
         var g = gather(this.sunionstore).apply(this, arguments);
         var union = this.sunion.apply(this, g.list);
         callback = g.callback;
@@ -1482,7 +1533,9 @@
         if (this.exists(destination)) {
             this.del(destination);
         }
-        this.sadd.apply(this, [destination].concat(union));
+        union.forEach(function (member) {
+            that.sadd(destination, member);
+        });
         return cb(callback)(null, union.length);
     };
 
@@ -1530,10 +1583,9 @@
         callback = g.callback;
         return this
             .ifType(key, 'zset', callback)
-            .thennx(function () { cache[zsets][key] = {scores: [], set: {}}; })
+            .thennx(function () { cache[zsets][key] = redismock.SortedSet(); })
             .then(function () {
-                var count = 0;
-                g
+                var count = g
                     .list
                     .map(function (elem, index) {
                         if (index % 2 === 0) {
@@ -1544,38 +1596,12 @@
                     .filter(function (elem) {
                         return elem !== null;
                     })
-                    .forEach(function (sm) {
-                        var score = sm[0];
-                        var m = sm[1];
-                        var noop = false;
-                        if (!cache[zsets][key].set[score]) {
-                            cache[zsets][key].scores.push(score);
-                            cache[zsets][key].set[score] = new redismock.Array();
-                        }
-                        cache[zsets][key]
-                            .scores
-                            .map(function (score) {
-                                return [score, cache[zsets][key].set[score].indexOf(m)];
-                            })
-                            .filter(function (si) {
-                                return si[1] !== -1;
-                            })
-                            .forEach(function (si) {
-                                if (si[0] !== score) {
-                                    cache[zsets][key].set[si[0]].splice(si[1], 1);
-                                }
-                                else {
-                                    noop = true;
-                                }
-                            });
-                        if (!noop) {
-                            cache[zsets][key].set[score].push(m);
-                            count += 1;
-                        }
-                    });
-                cache[zsets][key].scores.sort(function (a, b) {
-                    return parseInt(a, 10) - parseInt(b, 10);
-                });
+                    .map(function (sm) {
+                        return cache[zsets][key].add(sm[0], sm[1]);
+                    })
+                    .reduce(function (cnt, ret) {
+                        return cnt + ret;
+                    }, 0);
                 return count;
             })
             .end();
@@ -1585,9 +1611,7 @@
         return this
             .ifType(key, 'zset', callback)
             .thenex(function () { 
-                return cache[zsets][key].scores.reduce(function (cnt, score) {
-                    return cnt + cache[zsets][key].set[score].length;
-                }, 0);
+                return cache[zsets][key].card;
             })
             .thennx(function () { return 0; })
             .end();
@@ -1614,24 +1638,15 @@
     redismock.zincrby = function (key, increment, member, callback) {
         return this
             .ifType(key, 'zset', callback)
-            .thennx(function () { cache[zsets][key] = {scores: [], set: {}}; })
+            .thennx(function () { cache[zsets][key] = redismock.SortedSet(); })
             .then(function () {
-                var scoreIdx = -1, setIdx = -1, newScore, score;
-                cache[zsets][key]
-                    .scores
-                    .some(function (s, idx) {
-                        setIdx = cache[zsets][key].set[s].indexOf(member);
-                        if (setIdx !== -1) {
-                            scoreIdx = idx;
-                            score = s;
-                            return true;
-                        }
-                    });
-                if (scoreIdx === -1) {
+                var newScore, score;
+                if (!exists(cache[zsets][key].invset[member])) {
                     this.zadd(key, increment, member);
                     return increment;
                 }
-                newScore = cache[zsets][key].scores[scoreIdx] + increment;
+                score = cache[zsets][key].invset[member];
+                newScore = score + increment;
                 this.zadd(key, newScore, member);
                 return newScore;
             })
@@ -1643,7 +1658,7 @@
         var g = gather(this.zinterstore).apply(this, arguments);
         var weights = {};
         var aggregate = 'sum';
-        var inter = [], r;
+        var count;
         callback = g.callback;
         if (!g.list.slice(0, numkeys).every(function (k) {
             return that.type(k) === 'zset' || that.type(k) === 'none';
@@ -1667,64 +1682,58 @@
                 aggregate = g.list[idx + 1];
             }
         });
-        function nestedRange(k) {
-            var range = that.zrange(k, 0, -1, 'withscores');
-            return range
-                .map(function (mors, index) {
-                    var score;
-                    if (index % 2 === 0) {
-                        score = range[index + 1];
-                        if (k in weights) {
-                            score *= weights[k];
-                        }
-                        return [score, mors];
-                    }
-                    return null;
-                })
-                .filter(function (ms) {
-                    return ms !== null;
-                });
-        }
-        function rangeToHash(k) {
-            return nestedRange(k)
-                .reduce(function (hash, ms) {
-                    hash[ms[1]] = ms[0];
-                    return hash;
-                }, {});
-        }
-        inter = g
-            .list
-            .slice(1, numkeys)
-            .reduce(function (inter, k) {
-                var hash = rangeToHash(k);
-                return inter
-                    .filter(function (ms) {
-                        return ms[1] in hash;
-                    })
-                    .map(function (ms) {
-                        if (aggregate === 'min') {
-                            ms[0] = Math.min(ms[0], hash[ms[1]]);
-                        }
-                        else if (aggregate === 'max') {
-                            ms[0] = Math.max(ms[0], hash[ms[1]]);
-                        }
-                        else { // === 'sum'
-                            ms[0] += hash[ms[1]];
-                        }
-                        return ms;
-                    });
-            }, nestedRange(g.list[0]))
-            .reduce(function (unnest, nested) {
-                return unnest.concat(nested);
-            }, []);
         if (this.exists(destination)) {
             this.del(destination);
         }
-        r = this.zadd.apply(this, [destination].concat(inter));
-        if (r instanceof Error) {
-            return cb(callback)(r);
-        }
-        return cb(callback)(null, inter.length/2);
+        count = 0;
+        g
+            .list
+            .slice(1, numkeys)
+            .reduce(function (inter, k) {
+                var arr = [];
+                var idx, len = inter.length;
+                var score, ms;
+                for (idx = 0; idx < len; idx += 1) {
+                    if (idx % 2 !== 0) {
+                        continue;
+                    }
+                    score = cache[zsets][k].invset[inter[idx]];
+                    if (!exists(score)) {
+                        continue;
+                    }
+                    if (k in weights) {
+                        score *= weights[k];
+                    }
+                    ms = [inter[idx + 1], inter[idx]];
+                    if (aggregate === 'min') {
+                        ms[0] = Math.min(ms[0], score);
+                    }
+                    else if (aggregate === 'max') {
+                        ms[0] = Math.max(ms[0], score);
+                    }
+                    else { // === 'sum'
+                        ms[0] += score;
+                    }
+                    arr.push(ms[1], ms[0]);
+                }
+                return arr;
+            }, this.zrange(g.list[0], 0, -1, 'withscores').map(function (mors, index) {
+                if (!(g.list[0] in weights)) {
+                    return mors;
+                }
+                if (index % 2 === 0) {
+                    return mors;
+                }
+                return mors*weights[g.list[0]];
+            }))
+            .forEach(function (mors, index, inter) {
+                if (index % 2 !== 0) {
+                    return;
+                }
+                that.zadd(destination, inter[index + 1], mors);
+                count += 1;
+            });
+        return cb(callback)(null, count);
     };
 
     redismock.zlexcount = function (key, min, max, callback) {
@@ -1753,6 +1762,7 @@
                 var startScoreIdx = 0, idx = 0;
                 var range = [];
                 cache[zsets][key]
+                    .sortScores()
                     .scores
                     .some(function (score) {
                         if (idx <= start && idx + cache[zsets][key].set[score].length > start) {
@@ -1850,8 +1860,7 @@
     };
 
     redismock.zrevrangebylex = function (key, max, min, callback) {
-        var r = this
-            .zrangebylex(key, min, max);
+        var r = this.zrangebylex(key, min, max);
         if (r instanceof Error) {
             return cb(callback)(r);
         }
@@ -1905,6 +1914,7 @@
             .ifType(key, 'zset', callback)
             .thenex(function () {
                 cache[zsets][key]
+                    .sortScores()
                     .scores
                     .some(function (score) {
                         var memberArr = [], scoreArr = [], concatArr = [];
@@ -1963,7 +1973,9 @@
             .ifType(key, 'zset', callback)
             .thenex(function () {
                 var idx = 0;
-                var found = cache[zsets][key]
+                var found;
+                cache[zsets][key].sortScores();
+                found = cache[zsets][key]
                     .scores
                     .some(function (score) {
                         if (cache[zsets][key].set[score].indexOf(member) !== -1) {
@@ -1982,32 +1994,22 @@
     };
 
     redismock.zrem = function (key, member, callback) {
-        var count = 0;
         var g = gather(this.zrem).apply(this, arguments);
         callback = g.callback;
         return this
             .ifType(key, 'zset', callback)
             .thenex(function () {
-                g.list.forEach(function (m) {
-                    cache[zsets][key]
-                        .scores
-                        .forEach(function (score) {
-                            var idx = cache[zsets][key].set[score].indexOf(m);
-                            if (idx !== -1) {
-                                cache[zsets][key].set[score].splice(idx, 1);
-                                count += 1;
-                            }
-                            if (cache[zsets][key].set[score].length === 0) {
-                                cache[zsets][key].scores.splice(cache[zsets][key].scores.indexOf(score), 1);
-                                cache[zsets][key].set[score] = undefined;
-                            }
-                        });
-                });
+                var count = g
+                    .list
+                    .reduce(function (cnt, m) {
+                        return cnt + cache[zsets][key].rem(m);
+                    }, 0);
                 if (cache[zsets][key].scores.length === 0) {
                     this.del(key);
                 }
+                return count;
             })
-            .then(function () { return count; })
+            .thennx(function () { return 0; })
             .end();
     };
 
@@ -2040,6 +2042,7 @@
                     max = card + max;
                 }
                 cnt = 0;
+                cache[zsets][key].sortScores();
                 for (idx = 0; idx < len; idx += 1) {
                     score = cache[zsets][key].scores[idx];
                     nel = cache[zsets][key].set[score].length;
@@ -2094,6 +2097,7 @@
                 var startScoreIdx = 0, idx = 0;
                 var range = [];
                 cache[zsets][key]
+                    .sortScores()
                     .scores
                     .some(function (score) {
                         if (idx <= start && idx + cache[zsets][key].set[score].length > start) {
@@ -2176,6 +2180,7 @@
                 var idx, len = cache[zsets][key].scores.length, cnt;
                 var score;
                 cnt = 0;
+                cache[zsets][key].sortScores();
                 for (idx = len - 1; idx >= 0; idx -= 1, cnt += 1) {
                     score = cache[zsets][key].scores[idx];
                     if (cache[zsets][key].set[score].indexOf(member) !== -1) {
@@ -2193,15 +2198,9 @@
             .ifType(key, 'zset', callback)
             .thenex(function () {
                 var score = null;
-                cache[zsets][key]
-                    .scores
-                    .some(function (s) {
-                        if (cache[zsets][key].set[s].indexOf(member) !== -1) {
-                            score = s;
-                            return true;
-                        }
-                        return false;
-                    });
+                if (exists(cache[zsets][key].invset[member])) {
+                    score = cache[zsets][key].invset[member];
+                }
                 return score;
             })
             .thennx(function () { return null; })
@@ -2213,7 +2212,7 @@
         var g = gather(this.zunionstore).apply(this, arguments);
         var weights = {};
         var aggregate = 'sum';
-        var union = [], r;
+        var count;
         callback = g.callback;
         if (!g.list.slice(0, numkeys).every(function (k) {
             return that.type(k) === 'zset' || that.type(k) === 'none';
@@ -2237,77 +2236,76 @@
                 aggregate = g.list[idx + 1];
             }
         });
-        function nestedRange(k) {
-            var range = that.zrange(k, 0, -1, 'withscores');
-            return range
-                .map(function (mors, index) {
-                    var score;
-                    if (index % 2 === 0) {
-                        score = range[index + 1];
-                        if (k in weights) {
-                            score *= weights[k];
-                        }
-                        return [score, mors];
-                    }
-                    return null;
-                })
-                .filter(function (ms) {
-                    return ms !== null;
-                });
-        }
-        function rangeToHash(k) {
-            return nestedRange(k)
-                .reduce(function (hash, ms) {
-                    hash[ms[1]] = ms[0];
-                    return hash;
-                }, {});
-        }
-        union = g
-            .list
-            .slice(1, numkeys)
-            .reduce(function (union, k) {
-                var hash = rangeToHash(k);
-                var hashkeys = Object.keys(hash);
-                hashkeys
-                    .filter(function (u) {
-                        return u in union;
-                    })
-                    .forEach(function (u) {
-                        if (aggregate === 'min') {
-                            union[u] = Math.min(union[u], hash[u]);
-                        }
-                        else if (aggregate === 'max') {
-                            union[u] = Math.max(union[u], hash[u]);
-                        }
-                        else { // === 'sum'
-                            union[u] += hash[u];
-                        }
-                    });
-                hashkeys
-                    .filter(function (u) {
-                        return !(u in union);
-                    })
-                    .forEach(function (u) {
-                        union[u] = hash[u];
-                    });
-                return union;
-            }, rangeToHash(g.list[0]));
-        union = Object
-            .keys(union)
-            .map(function (m) {
-                return [union[m], m];
-            })
-            .reduce(function (unnest, nested) {
-                return unnest.concat(nested);
-            }, []);
         if (this.exists(destination)) {
             this.del(destination);
         }
-        r = this.zadd.apply(this, [destination].concat(union));
-        if (r instanceof Error) {
-            return cb(callback)(r);
-        }
-        return cb(callback)(null, union.length/2);
+        count = 0;
+        g
+            .list
+            .slice(1, numkeys)
+            .reduce(function (union, k) {
+                var arr = [];
+                var idx, len = union.length;
+                var score, ms;
+                var hashk = cache[zsets][k].invset;
+                var hashu = {};
+                for (idx = 0; idx < len; idx += 1) {
+                    if (idx % 2 !== 0) {
+                        continue;
+                    }
+                    ms = [union[idx + 1], union[idx]];
+                    score = cache[zsets][k].invset[union[idx]];
+                    hashu[ms[1]] = ms[0];
+                    if (!exists(score)) {
+                        arr.push(ms[1], ms[0]);
+                        continue;
+                    }
+                    if (k in weights) {
+                        score *= weights[k];
+                    }
+                    if (aggregate === 'min') {
+                        ms[0] = Math.min(ms[0], score);
+                    }
+                    else if (aggregate === 'max') {
+                        ms[0] = Math.max(ms[0], score);
+                    }
+                    else { // === 'sum'
+                        ms[0] += score;
+                    }
+                    arr.push(ms[1], ms[0]);
+                }
+                Object
+                    .keys(hashk)
+                    .forEach(function (member) {
+                        if (!exists(hashk[member])) {
+                            return;
+                        }
+                        if (!(member in hashu)) {
+                            score = hashk[member];
+                            if (k in weights) {
+                                score *= weights[k];
+                            }
+                            arr.push(member, score);
+                        }
+                    });
+                return arr;
+            }, this.zrange(g.list[0], 0, -1, 'withscores').map(function (mors, index) {
+                if (!(g.list[0] in weights)) {
+                    return mors;
+                }
+                if (index % 2 === 0) {
+                    return mors;
+                }
+                return mors*weights[g.list[0]];
+            }))
+            .forEach(function (mors, index, union) {
+                if (index % 2 !== 0) {
+                    return;
+                }
+                that.zadd(destination, union[index + 1], mors);
+                count += 1;
+            });
+        return cb(callback)(null, count);
     };
 
     redismock.zscan = function (key, cursor, callback) {
@@ -2333,6 +2331,7 @@
                 var arr = [];
                 var cnt = 0;
                 cache[zsets][key]
+                    .sortScores()
                     .scores
                     .some(function (score) {
                         cache[zsets][key]

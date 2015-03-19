@@ -14,7 +14,7 @@
     }
 
     describe('zadd', function () {
-        it('to return an error for a key that is not a zset', function (done) {
+        it('should return an error for a key that is not a zset', function (done) {
             var k = randkey();
             var v = 'v';
             redismock.set(k, v);
@@ -27,7 +27,7 @@
                 done();
             });
         });
-        it('to add new zset members with scores', function (done) {
+        it('should add new zset members with scores', function (done) {
             var k = randkey();
             var v = 'v', v1 = 'v1', v2 = 'v2';
             expect(redismock.zadd(k, 0, v)).to.equal(1);
@@ -42,17 +42,17 @@
                 done();
             });
         });
-        it('to update member scores', function (done) {
+        it('should update member scores', function (done) {
             var k = randkey();
             var v = 'v';
             expect(redismock.zadd(k, 0, v)).to.equal(1);
             expect(redismock.type(k)).to.equal('zset');
             expect(redismock.zcard(k)).to.equal(1);
-            expect(redismock.zadd(k, 1, v)).to.equal(1);
+            expect(redismock.zadd(k, 1, v)).to.equal(0);
             expect(redismock.zcard(k)).to.equal(1);
             redismock.zadd(k, 2, v, function (err, reply) {
                 expect(err).to.not.exist;
-                expect(reply).to.equal(1);
+                expect(reply).to.equal(0);
                 expect(redismock.zcard(k)).to.equal(1);
                 done();
             });
@@ -1500,17 +1500,19 @@
             redismock.zrem(k2, v4);
             redismock.zrem(k3, v4);
             redismock.zrem(k5, v4);
-            redismock.zinterstore(d, 4, k1, k2, k4, k5, 'aggregate', 'min', function (err, reply) {
+            redismock.zunionstore(d, 4, k1, k2, k4, k5, 'aggregate', 'min', function (err, reply) {
                 expect(err).to.not.exist;
-                expect(reply).to.equal(3);
+                expect(reply).to.equal(4);
                 range = redismock.zrange(d, 0, -1, 'withscores');
-                expect(range).to.have.lengthOf(3*2);
+                expect(range).to.have.lengthOf(4*2);
                 expect(range[0]).to.equal(v1);
                 expect(range[1]).to.equal(1);
-                expect(range[2]).to.equal(v3);
+                expect(range[2]).to.equal(v2);
                 expect(range[3]).to.equal(1);
-                expect(range[4]).to.equal(v5);
+                expect(range[4]).to.equal(v3);
                 expect(range[5]).to.equal(1);
+                expect(range[6]).to.equal(v5);
+                expect(range[7]).to.equal(1);
                 done();
             });
         });
@@ -1738,7 +1740,7 @@
             };
             f(0, '[0-9]?', done); // All two digit numbers
         });
-        it('should zscan through a large set with cursoring, a count, and a match', function (done) {
+        ('should zscan through a large set with cursoring, a count, and a match', function (done) {
             var k = randkey();
             var set = [];
             for (var idx = 0; idx < 62; idx += 1) {

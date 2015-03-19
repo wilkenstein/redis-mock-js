@@ -6,7 +6,7 @@
         "url": "git://github.com/wilkenstein/redis-mock-js.git"
     },
     "main": "redis-mock.js",
-    "version": "0.0.10",
+    "version": "0.0.10-1",
     "devDependencies": {
         "jshint": "2.3.0",
         "q": "~1.0",

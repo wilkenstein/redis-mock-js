@@ -8,6 +8,7 @@
 
     var ignorekeys = [
         'Array',
+        'SortedSet',
         'ifType',
         'randomkey',
         'multi',
