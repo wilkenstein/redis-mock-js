@@ -275,7 +275,21 @@
                 done();
             });
         });
-        xit('should zlexcount');
+        it('should return the count of elements in the lex range', function (done) {
+            var k = randkey();
+            var a = 'a', aa = 'aa', b = 'b', c = 'c', d = 'd', dd = 'dd';
+            redismock.zadd(k, 0, a, 0, dd, 0, c, 0, b, 0, d, 0, aa);
+            expect(redismock.zlexcount(k, '-', '+')).to.equal(6);
+            expect(redismock.zlexcount(k, '-', '(c')).to.equal(3);
+            expect(redismock.zlexcount(k, '-', '[c')).to.equal(4);
+            expect(redismock.zlexcount(k, '(c', '+')).to.equal(2);
+            expect(redismock.zlexcount(k, '[c', '+')).to.equal(3);
+            redismock.zlexcount(k, '[a', '(c', function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal(3);
+                done();
+            });
+        });
     });
 
     describe('zrange', function () {
@@ -660,14 +674,14 @@
                 done();
             });
         });
-        xit('should return the range from offset with count', function (done) {
+        it('should return the range from offset with count', function (done) {
             var k = randkey();
             var v1 = 'v1', v11 = 'v11', v2 = 'v2', v5 = 'v5', v7 = 'v7';
             redismock.zadd(k, 1, v1, 1, v11, 2, v2, 5, v5, 7, v7);
             var r = redismock.zrangebyscore(k, 1, 3, 'limit', 1, 1);
             expect(r).to.have.lengthOf(1);
             expect(r[0]).to.equal(v11);
-            redismock.zrangebyscore(k, 2, 8, 'limit', 3, 2, function (err, reply) {
+            redismock.zrangebyscore(k, 2, 8, 'limit', 3, 2, 'withscores', function (err, reply) {
                 expect(err).to.not.exist;
                 expect(reply).to.have.lengthOf(2*2);
                 expect(reply[0]).to.equal(v5);
@@ -787,15 +801,134 @@
     });
 
     describe('zremrangebylex', function () {
-        xit('should zremrangebylex');
+        it('should return an error for a key that is not a zset', function (done) {
+            var k = randkey();
+            var v = 'v';
+            redismock.set(k, v);
+            expect(redismock.zremrangebylex(k, '-', '+')).to.be.an.instanceof(Error);
+            redismock.zremrangebylex(k, '-', '(c', function (err, reply) {
+                expect(err).to.exist;
+                expect(reply).to.not.exist;
+                expect(err).to.be.an.instanceof(Error);
+                expect(err.message.indexOf('WRONGTYPE')).to.be.above(-1);
+                done();
+            });
+        });
+        it('should remove the range by lex', function (done) {
+            var k = randkey();
+            var a = 'a', aa = 'aa', b = 'b', c = 'c', cc = 'cc', ccc = 'ccc', d = 'd';
+            redismock.zadd(k, 0, a, 0, d, 0, ccc, 0, b, 0, aa, 0, cc, 0, c);
+            expect(redismock.zremrangebylex(k, '-', '+')).to.equal(7);
+            expect(redismock.zcard(k)).to.equal(0);
+            redismock.zadd(k, 0, a, 0, d, 0, ccc, 0, b, 0, aa, 0, cc, 0, c);
+            expect(redismock.zremrangebylex(k, '-', '(c')).to.equal(3);
+            expect(redismock.zcard(k)).to.equal(4);
+            expect(redismock.zscore(k, a)).to.not.exist;
+            expect(redismock.zscore(k, aa)).to.not.exist;
+            expect(redismock.zscore(k, b)).to.not.exist;
+            redismock.zadd(k, 0, aa, 0, b, 0, a);
+            expect(redismock.zremrangebylex(k, '[cc', '+')).to.equal(3);
+            expect(redismock.zcard(k)).to.equal(4);
+            expect(redismock.zscore(k, cc)).to.not.exist;
+            expect(redismock.zscore(k, ccc)).to.not.exist;
+            expect(redismock.zscore(k, d)).to.not.exist;
+            redismock.zadd(k, 0, d, 0, ccc, 0, cc);
+            redismock.zremrangebylex(k, '(b', '[cc', function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal(2);
+                expect(redismock.zcard(k)).to.equal(5);
+                expect(redismock.zscore(k, b)).to.equal(0);
+                expect(redismock.zscore(k, c)).to.not.exist;
+                expect(redismock.zscore(k, cc)).to.not.exist;
+                expect(redismock.zscore(k, ccc)).to.equal(0);
+                expect(redismock.zscore(k, d)).to.equal(0);
+                done();
+            });
+        });
     });
 
     describe('zremrangebyrank', function () {
-        xit('should zremrangebyrank');
+        it('should return an error for a key that is not a zset', function (done) {
+            var k = randkey();
+            var v = 'v';
+            redismock.set(k, v);
+            expect(redismock.zremrangebyrank(k, 0, -1)).to.be.an.instanceof(Error);
+            redismock.zremrangebyrank(k, 2, 3, function (err, reply) {
+                expect(err).to.exist;
+                expect(reply).to.not.exist;
+                expect(err).to.be.an.instanceof(Error);
+                expect(err.message.indexOf('WRONGTYPE')).to.be.above(-1);
+                done();
+            });
+        });
+        it('should remove the range by rank', function (done) {
+            var k = randkey();
+            var a = 'a', aa = 'aa', b = 'b', c = 'c', cc = 'cc', ccc = 'ccc', d = 'd';
+            redismock.zadd(k, 0, a, 1, d, 4, ccc, 2, b, 0, aa, 0, cc, 3, c);
+            expect(redismock.zremrangebyrank(k, 0, -1)).to.equal(7);
+            expect(redismock.zcard(k)).to.equal(0);
+            redismock.zadd(k, 0, a, 1, d, 4, ccc, 2, b, 0, aa, 0, cc, 3, c);
+            expect(redismock.zremrangebyrank(k, 0, 2)).to.equal(3);
+            expect(redismock.zcard(k)).to.equal(4);
+            expect(redismock.zscore(k, a)).to.not.exist;
+            expect(redismock.zscore(k, aa)).to.not.exist;
+            expect(redismock.zscore(k, cc)).to.not.exist;
+            redismock.zadd(k, 0, aa, 0, a, 0, cc);
+            expect(redismock.zremrangebyrank(k, -3, -1)).to.equal(3);
+            expect(redismock.zcard(k)).to.equal(4);
+            expect(redismock.zscore(k, b)).to.not.exist;
+            expect(redismock.zscore(k, c)).to.not.exist;
+            expect(redismock.zscore(k, ccc)).to.not.exist;
+            redismock.zadd(k, 2, b, 4, ccc, 3, c);
+            redismock.zremrangebyrank(k, 3, 4, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal(2);
+                expect(redismock.zcard(k)).to.equal(5);
+                expect(redismock.zscore(k, d)).to.not.exist;
+                expect(redismock.zscore(k, b)).to.not.exist;
+                done();
+            });
+        });
     });
 
     describe('zremrangebyscore', function () {
-        xit('should zremrangebyscore');
+        it('should return an error for a key that is not a zset', function (done) {
+            var k = randkey();
+            var v = 'v';
+            redismock.set(k, v);
+            expect(redismock.zremrangebyscore(k, 0, 1)).to.be.an.instanceof(Error);
+            redismock.zremrangebyscore(k, 2, 3, function (err, reply) {
+                expect(err).to.exist;
+                expect(reply).to.not.exist;
+                expect(err).to.be.an.instanceof(Error);
+                expect(err.message.indexOf('WRONGTYPE')).to.be.above(-1);
+                done();
+            });
+        });
+        it('should remove the range by score', function (done) {
+            var k = randkey();
+            var a = 'a', aa = 'aa', b = 'b', c = 'c', cc = 'cc', ccc = 'ccc', d = 'd';
+            redismock.zadd(k, 0, a, 1, d, 4, ccc, 2, b, 0, aa, 0, cc, 3, c);
+            expect(redismock.zremrangebyscore(k, 0, 5)).to.equal(7);
+            expect(redismock.zcard(k)).to.equal(0);
+            redismock.zadd(k, 0, a, 1, d, 4, ccc, 2, b, 0, aa, 0, cc, 3, c);
+            expect(redismock.zremrangebyscore(k, 0, 0)).to.equal(3);
+            expect(redismock.zcard(k)).to.equal(4);
+            expect(redismock.zscore(k, a)).to.not.exist;
+            expect(redismock.zscore(k, aa)).to.not.exist;
+            expect(redismock.zscore(k, cc)).to.not.exist;
+            redismock.zadd(k, 0, aa, 0, a, 0, cc);
+            redismock.zremrangebyscore(k, 1, 4, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal(4);
+                expect(redismock.zcard(k)).to.equal(3);
+                expect(redismock.zscore(k, d)).to.not.exist;
+                expect(redismock.zscore(k, b)).to.not.exist;
+                expect(redismock.zscore(k, c)).to.not.exist;
+                expect(redismock.zscore(k, ccc)).to.not.exist;
+                done();
+            });
+        });
     });
 
     describe('zrevrange', function () {
@@ -812,7 +945,7 @@
                 done();
             });
         });
-        it('to return an empty array for a key that does not exist', function (done) {
+        it('should return an empty array for a key that does not exist', function (done) {
             var k = randkey();
             var v = 'v';
             expect(redismock.zrevrange(k, 0, 1)).to.have.lengthOf(0);
@@ -822,7 +955,7 @@
                 done();
             });
         });
-        it('to return the range', function (done) {
+        it('should return the range', function (done) {
             var k = randkey();
             var v1 = 'v1', v2 = 'v2', v3 = 'v3';
             redismock.zadd(k, 1, v1, 2, v2, 3, v3);
@@ -838,7 +971,7 @@
                 done();
             });
         });
-        it('to return the range for negative numbers', function (done) {
+        it('should return the range for negative numbers', function (done) {
             var k = randkey();
             var v1 = 'v1', v2 = 'v2', v3 = 'v3';
             redismock.zadd(k, 1, v1, 2, v2, 3, v3);
@@ -854,7 +987,7 @@
                 done();
             });
         });
-        it('to return the range withscores', function (done) {
+        it('should return the range withscores', function (done) {
             var k = randkey();
             var v1 = 'v1', v2 = 'v2', v3 = 'v3';
             redismock.zadd(k, 1, v1, 2, v2, 3, v3);
@@ -1115,7 +1248,7 @@
                 done();
             });
         });
-        xit('should store an inter of N zsets into destination', function (done) {
+        xit('should store a union of N zsets into destination', function (done) {
         });
         xit('should weight scores in keys if the weight option is given', function (done) {
         });

@@ -1860,7 +1860,7 @@
         var withscores = false;
         var limitOffset = -1, limitCount = -1; 
         var idx, len;
-        var arr = [], offset;
+        var arr = [], offset, count;
         var minInclusive = true, maxInclusive = true;
         if (typeof callback !== "function") {
             len = arguments.length;
@@ -1897,6 +1897,8 @@
             maxInclusive = false;
             max = parseFloat(max.toString().substr(1));
         }
+        offset = 0;
+        count = 0;
         return this
             .ifType(key, 'zset', callback)
             .thenex(function () {
@@ -1909,7 +1911,7 @@
                             if (((minInclusive && min <= score) || (!minInclusive && min < score)) && ((maxInclusive && score <= max) || (!maxInclusive && score < max))) {
                                 if (limitOffset !== -1 && offset >= limitOffset) {
                                     if (limitCount !== -1) {
-                                        if (arr.length + memberArr.length < limitCount) {
+                                        if (count + memberArr.length < limitCount) {
                                             memberArr.push(member);
                                             if (withscores) {
                                                 scoreArr.push(score);
@@ -1920,7 +1922,7 @@
                                         }
                                     }
                                 }
-                                else {
+                                else if (limitOffset === -1) {
                                     memberArr.push(member);
                                     if (withscores) {
                                         scoreArr.push(score);
@@ -1930,6 +1932,7 @@
                             offset += 1;
                             return false;
                         });
+                        count += memberArr.length;
                         memberArr.sort(function (a, b) {
                             return a.localeCompare(b);
                         });
@@ -1942,7 +1945,7 @@
                             concatArr = memberArr;
                         }
                         arr = arr.concat(concatArr);
-                        if (limitCount !== -1 && arr.length === limitCount) {
+                        if (limitCount !== -1 && count === limitCount) {
                             return true;
                         }
                         return false;
@@ -2027,6 +2030,13 @@
                 var cnt;
                 var score;
                 var toRem = [];
+                var card = this.zcard(key);
+                if (min < 0) {
+                    min = card + min;
+                }
+                if (max < 0) {
+                    max = card + max;
+                }
                 cnt = 0;
                 for (idx = 0; idx < len; idx += 1) {
                     score = cache[zsets][key].scores[idx];
@@ -2044,7 +2054,7 @@
                     }
                 }
                 toRem.forEach(function (r) {
-                    that.zrem(r);
+                    that.zrem(key,r);
                 });
                 return toRem.length;
             })
