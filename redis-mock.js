@@ -47,6 +47,8 @@
         this.scores = [];
         this.set = {};
         this.invset = {};
+        this.indices = {};
+        this.lengths = {};
         this.card = 0;
         return this;
     }
@@ -59,9 +61,12 @@
         if (!exists(this.set[score])) {
             this.scores.push(score);
             this.set[score] = [];
+            this.lengths[score] = 0;
         }
         this.set[score].push(member);
         this.invset[member] = score;
+        this.indices[member] = this.set[score].length - 1;
+        this.lengths[score] += 1;
         this.card += 1;
         return ret;
     };
@@ -71,12 +76,14 @@
             return 0;
         }
         score = this.invset[member];
-        this.set[score].splice(this.set[score].indexOf(member), 1);
-        if (this.set[score].length === 0) {
+        this.set[score][this.indices[member]] = undefined;
+        this.lengths[score] -= 1;
+        if (this.lengths[score] === 0) {
             this.set[score] = undefined;
             this.scores.splice(this.scores.indexOf(score), 1);
         }
         this.invset[member] = undefined;
+        this.indices[member] = undefined;
         this.card -= 1;
         return 1;
     };
@@ -1627,7 +1634,7 @@
                         return min <= score && score <= max;
                     })
                     .reduce(function (cnt, score) {
-                        return cnt + cache[zsets][key].set[score].length;
+                        return cnt + cache[zsets][key].lengths[score];
                     }, 0);
                 return count;
             })
@@ -1765,7 +1772,7 @@
                     .sortScores()
                     .scores
                     .some(function (score) {
-                        if (idx <= start && idx + cache[zsets][key].set[score].length > start) {
+                        if (idx <= start && idx + cache[zsets][key].lengths[score] > start) {
                             return true;
                         }
                         idx += cache[zsets][key].set[score].length;
@@ -1777,7 +1784,7 @@
                     .slice(startScoreIdx)
                     .some(function (score) {
                         var arr = [];
-                        var len = cache[zsets][key].set[score].length;
+                        var len = cache[zsets][key].lengths[score];
                         var from = 0, to = 0;
                         if (idx > stop) {
                             return true;
@@ -1791,7 +1798,12 @@
                             idx += 1;
                             to += 1;
                         }
-                        arr = cache[zsets][key].set[score].slice(from, to);
+                        while (from < to) {
+                            if (exists(cache[zsets][key].set[score][from])) {
+                                arr.push(cache[zsets][key].set[score][from]);
+                            }
+                            from += 1;
+                        }
                         arr.sort(function (a, b) {
                             return a.localeCompare(b);
                         });
@@ -1840,6 +1852,9 @@
                         cache[zsets][key]
                             .set[score]
                             .forEach(function (member) {
+                                if (!exists(member)) {
+                                    return;
+                                }
                                 if (member > minStr && (member < maxStr || maxAll)) {
                                     range.push(member);
                                 }
@@ -1919,6 +1934,9 @@
                     .some(function (score) {
                         var memberArr = [], scoreArr = [], concatArr = [];
                         cache[zsets][key].set[score].some(function (member) {
+                            if (!exists(member)) {
+                                return;
+                            }
                             // TODO: Re-work to scan scores to the right score, then start there.
                             if (((minInclusive && min <= score) || (!minInclusive && min < score)) && ((maxInclusive && score <= max) || (!maxInclusive && score < max))) {
                                 if (limitOffset !== -1 && offset >= limitOffset) {

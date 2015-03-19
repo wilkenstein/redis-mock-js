@@ -41,7 +41,7 @@
             var start = new Date();
             var reply = redismock.zinterstore(d, k1, k2);
             var end = new Date();
-            expect(end - start).to.be.below(30000);
+            expect(end - start).to.be.below(20000);
         });
     });
 
@@ -49,12 +49,12 @@
     });
 
     describe('unioning 2 one million element sorted sets with at most one hundred distinct scores', function () {
-        it('should take under 30 seconds', function () {
+        it('should take under 20 seconds', function () {
             var d = randkey();
             var start = new Date();
             var reply = redismock.zunionstore(d, k1, k2);
             var end = new Date();
-            expect(end - start).to.be.below(30000);
+            expect(end - start).to.be.below(20000);
         });
     });
 

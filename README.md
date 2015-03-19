@@ -310,6 +310,8 @@ JavaScript engines, a somewhat specific style is required:
   - HyperLogLog support.
 
 ## Versions
+* 0.0.10-2
+  - Sorted Set time improvements at the cost of memory.
 * 0.0.10-1
   - Sorted Set time improvements.
   - Load tests for sorted sets.
