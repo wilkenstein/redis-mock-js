@@ -1573,7 +1573,9 @@
                             count += 1;
                         }
                     });
-                cache[zsets][key].scores.sort();
+                cache[zsets][key].scores.sort(function (a, b) {
+                    return parseInt(a, 10) - parseInt(b, 10);
+                });
                 return count;
             })
             .end();
@@ -2208,7 +2210,7 @@
 
     redismock.zunionstore = function (destination, numkeys, key, callback) {
         var that = this;
-        var g = gather(this.zinterstore).apply(this, arguments);
+        var g = gather(this.zunionstore).apply(this, arguments);
         var weights = {};
         var aggregate = 'sum';
         var union = [], r;
@@ -2268,13 +2270,6 @@
                 var hashkeys = Object.keys(hash);
                 hashkeys
                     .filter(function (u) {
-                        return !(u in union);
-                    })
-                    .forEach(function (u) {
-                        union[u] = hash[u];
-                    });
-                hashkeys
-                    .filter(function (u) {
                         return u in union;
                     })
                     .forEach(function (u) {
@@ -2287,6 +2282,13 @@
                         else { // === 'sum'
                             union[u] += hash[u];
                         }
+                    });
+                hashkeys
+                    .filter(function (u) {
+                        return !(u in union);
+                    })
+                    .forEach(function (u) {
+                        union[u] = hash[u];
                     });
                 return union;
             }, rangeToHash(g.list[0]));
@@ -2309,7 +2311,56 @@
     };
 
     redismock.zscan = function (key, cursor, callback) {
-        return cb(callback)(new Error('UNIMPLEMENTED'));
+        var g = gather(this.zscan).apply(this, arguments);
+        var count, match;
+        g
+            .list
+            .forEach(function (option, index) {
+                if (option === 'count') {
+                    count = g.list[index + 1];
+                }
+                if (option === 'match') {
+                    match = new RegExp(translate(g.list[index + 1]));
+                }
+            });
+        if (typeof count === 'undefined' || isNaN(parseInt(count, 10))) {
+            count = 10;
+        }
+        callback = g.callback;
+        return this
+            .ifType(key, 'zset', callback)
+            .then(function () {
+                var arr = [];
+                var cnt = 0;
+                cache[zsets][key]
+                    .scores
+                    .some(function (score) {
+                        cache[zsets][key]
+                            .set[score]
+                            .some(function (member) {
+                                if (cursor <= cnt) {
+                                    if (typeof match === 'undefined' || member.match(match)) {
+                                        arr.push([member, score]);
+                                    }
+                                    cursor += 1;
+                                }
+                                if (arr.length >= count) {
+                                    return true;
+                                }
+                                cnt += 1;
+                                return false;
+                            });
+                        if (arr.length >= count) {
+                            return true;
+                        }
+                        return false;
+                    });
+                arr = arr.reduce(function (unnested, ms) {
+                    return unnested.concat(ms);
+                }, []);
+                return [cursor, arr];
+            })
+            .end();
     };
 
     // Hash Commands

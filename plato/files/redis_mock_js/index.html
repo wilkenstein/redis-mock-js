@@ -45,11 +45,11 @@
   <div class="row">
     <div class="col-md-6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">71.09</p>
+      <p class="stat">71.00</p>
     </div>
     <div class="col-md-6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">3002</p>
+      <p class="stat">3063</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="col-md-6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">291.61</p>
+      <p class="stat">296.30</p>
     </div>
     <div class="col-md-6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">39.37</p>
+      <p class="stat">40.15</p>
     </div>
   </div>
 </div>
@@ -1665,7 +1665,9 @@
                             count += 1;
                         }
                     });
-                cache[zsets][key].scores.sort();
+                cache[zsets][key].scores.sort(function (a, b) {
+                    return parseInt(a, 10) - parseInt(b, 10);
+                });
                 return count;
             })
             .end();
@@ -1952,7 +1954,7 @@
         var withscores = false;
         var limitOffset = -1, limitCount = -1; 
         var idx, len;
-        var arr = [], offset;
+        var arr = [], offset, count;
         var minInclusive = true, maxInclusive = true;
         if (typeof callback !== &quot;function&quot;) {
             len = arguments.length;
@@ -1989,6 +1991,8 @@
             maxInclusive = false;
             max = parseFloat(max.toString().substr(1));
         }
+        offset = 0;
+        count = 0;
         return this
             .ifType(key, &#039;zset&#039;, callback)
             .thenex(function () {
@@ -2001,7 +2005,7 @@
                             if (((minInclusive &amp;&amp; min &lt;= score) || (!minInclusive &amp;&amp; min &lt; score)) &amp;&amp; ((maxInclusive &amp;&amp; score &lt;= max) || (!maxInclusive &amp;&amp; score &lt; max))) {
                                 if (limitOffset !== -1 &amp;&amp; offset &gt;= limitOffset) {
                                     if (limitCount !== -1) {
-                                        if (arr.length + memberArr.length &lt; limitCount) {
+                                        if (count + memberArr.length &lt; limitCount) {
                                             memberArr.push(member);
                                             if (withscores) {
                                                 scoreArr.push(score);
@@ -2012,7 +2016,7 @@
                                         }
                                     }
                                 }
-                                else {
+                                else if (limitOffset === -1) {
                                     memberArr.push(member);
                                     if (withscores) {
                                         scoreArr.push(score);
@@ -2022,6 +2026,7 @@
                             offset += 1;
                             return false;
                         });
+                        count += memberArr.length;
                         memberArr.sort(function (a, b) {
                             return a.localeCompare(b);
                         });
@@ -2034,7 +2039,7 @@
                             concatArr = memberArr;
                         }
                         arr = arr.concat(concatArr);
-                        if (limitCount !== -1 &amp;&amp; arr.length === limitCount) {
+                        if (limitCount !== -1 &amp;&amp; count === limitCount) {
                             return true;
                         }
                         return false;
@@ -2119,6 +2124,13 @@
                 var cnt;
                 var score;
                 var toRem = [];
+                var card = this.zcard(key);
+                if (min &lt; 0) {
+                    min = card + min;
+                }
+                if (max &lt; 0) {
+                    max = card + max;
+                }
                 cnt = 0;
                 for (idx = 0; idx &lt; len; idx += 1) {
                     score = cache[zsets][key].scores[idx];
@@ -2136,7 +2148,7 @@
                     }
                 }
                 toRem.forEach(function (r) {
-                    that.zrem(r);
+                    that.zrem(key,r);
                 });
                 return toRem.length;
             })
@@ -2290,7 +2302,7 @@
 
     redismock.zunionstore = function (destination, numkeys, key, callback) {
         var that = this;
-        var g = gather(this.zinterstore).apply(this, arguments);
+        var g = gather(this.zunionstore).apply(this, arguments);
         var weights = {};
         var aggregate = &#039;sum&#039;;
         var union = [], r;
@@ -2350,13 +2362,6 @@
                 var hashkeys = Object.keys(hash);
                 hashkeys
                     .filter(function (u) {
-                        return !(u in union);
-                    })
-                    .forEach(function (u) {
-                        union[u] = hash[u];
-                    });
-                hashkeys
-                    .filter(function (u) {
                         return u in union;
                     })
                     .forEach(function (u) {
@@ -2369,6 +2374,13 @@
                         else { // === &#039;sum&#039;
                             union[u] += hash[u];
                         }
+                    });
+                hashkeys
+                    .filter(function (u) {
+                        return !(u in union);
+                    })
+                    .forEach(function (u) {
+                        union[u] = hash[u];
                     });
                 return union;
             }, rangeToHash(g.list[0]));
@@ -2391,7 +2403,56 @@
     };
 
     redismock.zscan = function (key, cursor, callback) {
-        return cb(callback)(new Error(&#039;UNIMPLEMENTED&#039;));
+        var g = gather(this.zscan).apply(this, arguments);
+        var count, match;
+        g
+            .list
+            .forEach(function (option, index) {
+                if (option === &#039;count&#039;) {
+                    count = g.list[index + 1];
+                }
+                if (option === &#039;match&#039;) {
+                    match = new RegExp(translate(g.list[index + 1]));
+                }
+            });
+        if (typeof count === &#039;undefined&#039; || isNaN(parseInt(count, 10))) {
+            count = 10;
+        }
+        callback = g.callback;
+        return this
+            .ifType(key, &#039;zset&#039;, callback)
+            .then(function () {
+                var arr = [];
+                var cnt = 0;
+                cache[zsets][key]
+                    .scores
+                    .some(function (score) {
+                        cache[zsets][key]
+                            .set[score]
+                            .some(function (member) {
+                                if (cursor &lt;= cnt) {
+                                    if (typeof match === &#039;undefined&#039; || member.match(match)) {
+                                        arr.push([member, score]);
+                                    }
+                                    cursor += 1;
+                                }
+                                if (arr.length &gt;= count) {
+                                    return true;
+                                }
+                                cnt += 1;
+                                return false;
+                            });
+                        if (arr.length &gt;= count) {
+                            return true;
+                        }
+                        return false;
+                    });
+                arr = arr.reduce(function (unnested, ms) {
+                    return unnested.concat(ms);
+                }, []);
+                return [cursor, arr];
+            })
+            .end();
     };
 
     // Hash Commands

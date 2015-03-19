@@ -251,13 +251,153 @@
                 done();
             });
         });
-        xit('should store an inter of N zsets into destination', function (done) {
+        it('should store an inter of N zsets into destination', function (done) {
+            var d = randkey(), k1 = randkey(), k2 = randkey(), k3 = randkey(), k4 = randkey(), k5 = randkey();
+            var v1 = 'v1', v2 = 'v2', v3 = 'v3', v4 = 'v4', v5 = 'v5';
+            redismock.zadd(k1, 1, v1, 3, v3, 5, v5);
+            redismock.zadd(k2, 1, v1, 2, v2, 3, v3, 4, v4, 5, v5);
+            redismock.zadd(k3, 0, v1, 0, v2, 0, v3, 0, v4, 0, v5);
+            redismock.zadd(k4, 3, v1, 2, v3, 1, v5);
+            redismock.zadd(k5, 1, v1, 1, v2, 1, v3, 1, v4, 1, v5);
+            expect(redismock.zinterstore(d, 5, k1, k2, k3, k4, k5)).to.equal(3);
+            expect(redismock.exists(d)).to.equal(1);
+            expect(redismock.type(d)).to.equal('zset');
+            var range = redismock.zrange(d, 0, -1, 'withscores');
+            expect(range).to.have.lengthOf(3*2);
+            expect(range[0]).to.equal(v1);
+            expect(range[1]).to.equal(6);
+            expect(range[2]).to.equal(v3);
+            expect(range[3]).to.equal(9);
+            expect(range[4]).to.equal(v5);
+            expect(range[5]).to.equal(12);
+            redismock.zadd(k1, 4, v4);
+            redismock.zadd(k4, 0, v4);
+            redismock.zinterstore(d, 5, k1, k2, k3, k4, k5, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal(4);
+                range = redismock.zrange(d, 0, -1, 'withscores');
+                expect(range).to.have.lengthOf(4*2);
+                expect(range[0]).to.equal(v1);
+                expect(range[1]).to.equal(6);
+                expect(range[2]).to.equal(v3);
+                expect(range[3]).to.equal(9);
+                expect(range[4]).to.equal(v4);
+                expect(range[5]).to.equal(9);
+                expect(range[6]).to.equal(v5);
+                expect(range[7]).to.equal(12);
+                done();
+            });
         });
-        xit('should weight scores in keys if the weight option is given', function (done) {
+        it('should weight scores in keys if the weight option is given', function (done) {
+            var d = randkey(), k1 = randkey(), k2 = randkey(), k3 = randkey(), k4 = randkey(), k5 = randkey();
+            var v1 = 'v1', v2 = 'v2', v3 = 'v3', v4 = 'v4', v5 = 'v5';
+            redismock.zadd(k1, 1, v1, 3, v3, 5, v5);
+            redismock.zadd(k2, 1, v1, 2, v2, 3, v3, 4, v4, 5, v5);
+            redismock.zadd(k3, 0, v1, 0, v2, 0, v3, 0, v4, 0, v5);
+            redismock.zadd(k4, 3, v1, 2, v3, 1, v5);
+            redismock.zadd(k5, 1, v1, 1, v2, 1, v3, 1, v4, 1, v5);
+            expect(redismock.zinterstore(d, 5, k1, k2, k3, k4, k5, 'weights', 1, 0, 0, 0)).to.equal(3);
+            expect(redismock.exists(d)).to.equal(1);
+            expect(redismock.type(d)).to.equal('zset');
+            var range = redismock.zrange(d, 0, -1, 'withscores');
+            expect(range).to.have.lengthOf(3*2);
+            expect(range[0]).to.equal(v1);
+            expect(range[1]).to.equal(2);
+            expect(range[2]).to.equal(v3);
+            expect(range[3]).to.equal(4);
+            expect(range[4]).to.equal(v5);
+            expect(range[5]).to.equal(6);
+            redismock.zadd(k1, 4, v4);
+            redismock.zadd(k4, 0, v4);
+            redismock.zinterstore(d, 5, k1, k2, k3, k4, k5, 'weights', 0, 2, 0, 3, 10, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal(4);
+                range = redismock.zrange(d, 0, -1, 'withscores');
+                expect(range).to.have.lengthOf(4*2);
+                expect(range[0]).to.equal(v4);
+                expect(range[1]).to.equal(18);
+                expect(range[2]).to.equal(v1);
+                expect(range[3]).to.equal(21);
+                expect(range[4]).to.equal(v3);
+                expect(range[5]).to.equal(22);
+                expect(range[6]).to.equal(v5);
+                expect(range[7]).to.equal(23);
+                done();
+            });
         });
-        xit('should aggregate scores in keys if the aggregate option is given', function (done) {
+        it('should aggregate scores in keys if the aggregate option is given', function (done) {
+            var d = randkey(), k1 = randkey(), k2 = randkey(), k3 = randkey(), k4 = randkey(), k5 = randkey();
+            var v1 = 'v1', v2 = 'v2', v3 = 'v3', v4 = 'v4', v5 = 'v5';
+            redismock.zadd(k1, 1, v1, 3, v3, 5, v5);
+            redismock.zadd(k2, 1, v1, 2, v2, 3, v3, 4, v4, 5, v5);
+            redismock.zadd(k3, 0, v1, 0, v2, 0, v3, 0, v4, 0, v5);
+            redismock.zadd(k4, 3, v1, 2, v3, 1, v5);
+            redismock.zadd(k5, 1, v1, 1, v2, 1, v3, 1, v4, 1, v5);
+            expect(redismock.zinterstore(d, 5, k1, k2, k3, k4, k5, 'aggregate', 'max')).to.equal(3);
+            expect(redismock.exists(d)).to.equal(1);
+            expect(redismock.type(d)).to.equal('zset');
+            var range = redismock.zrange(d, 0, -1, 'withscores');
+            expect(range).to.have.lengthOf(3*2);
+            expect(range[0]).to.equal(v1);
+            expect(range[1]).to.equal(3);
+            expect(range[2]).to.equal(v3);
+            expect(range[3]).to.equal(3);
+            expect(range[4]).to.equal(v5);
+            expect(range[5]).to.equal(5);
+            redismock.zadd(k1, 4, v4);
+            redismock.zadd(k4, 0, v4);
+            redismock.zinterstore(d, 4, k1, k2, k4, k5, 'aggregate', 'min', function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal(4);
+                range = redismock.zrange(d, 0, -1, 'withscores');
+                expect(range).to.have.lengthOf(4*2);
+                expect(range[0]).to.equal(v4);
+                expect(range[1]).to.equal(0);
+                expect(range[2]).to.equal(v1);
+                expect(range[3]).to.equal(1);
+                expect(range[4]).to.equal(v3);
+                expect(range[5]).to.equal(1);
+                expect(range[6]).to.equal(v5);
+                expect(range[7]).to.equal(1);
+                done();
+            });
         });
-        xit('should weight and aggregate if both options given', function (done) {
+        it('should weight and aggregate if both options given', function (done) {
+            var d = randkey(), k1 = randkey(), k2 = randkey(), k3 = randkey(), k4 = randkey(), k5 = randkey();
+            var v1 = 'v1', v2 = 'v2', v3 = 'v3', v4 = 'v4', v5 = 'v5';
+            redismock.zadd(k1, 1, v1, 3, v3, 5, v5);
+            redismock.zadd(k2, 1, v1, 2, v2, 3, v3, 4, v4, 5, v5);
+            redismock.zadd(k3, 0, v1, 0, v2, 0, v3, 0, v4, 0, v5);
+            redismock.zadd(k4, 3, v1, 2, v3, 1, v5);
+            redismock.zadd(k5, 1, v1, 1, v2, 1, v3, 1, v4, 1, v5);
+            expect(redismock.zinterstore(d, 5, k1, k2, k3, k4, k5, 'aggregate', 'max', 'weights', 0, 4, 9)).to.equal(3);
+            expect(redismock.exists(d)).to.equal(1);
+            expect(redismock.type(d)).to.equal('zset');
+            var range = redismock.zrange(d, 0, -1, 'withscores');
+            expect(range).to.have.lengthOf(3*2);
+            expect(range[0]).to.equal(v1);
+            expect(range[1]).to.equal(4);
+            expect(range[2]).to.equal(v3);
+            expect(range[3]).to.equal(12);
+            expect(range[4]).to.equal(v5);
+            expect(range[5]).to.equal(20);
+            redismock.zadd(k1, 4, v4);
+            redismock.zadd(k4, 0, v4);
+            redismock.zinterstore(d, 4, k1, k2, k4, k5, 'aggregate', 'min', 'weights', 2, 2, 2, 2, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal(4);
+                range = redismock.zrange(d, 0, -1, 'withscores');
+                expect(range).to.have.lengthOf(4*2);
+                expect(range[0]).to.equal(v4);
+                expect(range[1]).to.equal(0);
+                expect(range[2]).to.equal(v1);
+                expect(range[3]).to.equal(2);
+                expect(range[4]).to.equal(v3);
+                expect(range[5]).to.equal(2);
+                expect(range[6]).to.equal(v5);
+                expect(range[7]).to.equal(2);
+                done();
+            });
         });
     });
 
@@ -1248,17 +1388,401 @@
                 done();
             });
         });
-        xit('should store a union of N zsets into destination', function (done) {
+        it('should store a union of N zsets into destination', function (done) {
+            var d = randkey(), k1 = randkey(), k2 = randkey(), k3 = randkey(), k4 = randkey(), k5 = randkey();
+            var v1 = 'v1', v2 = 'v2', v3 = 'v3', v4 = 'v4', v5 = 'v5';
+            redismock.zadd(k1, 1, v1, 3, v3, 5, v5);
+            redismock.zadd(k2, 1, v1, 2, v2, 3, v3, 4, v4, 5, v5);
+            redismock.zadd(k3, 0, v1, 0, v2, 0, v3, 0, v4, 0, v5);
+            redismock.zadd(k4, 3, v1, 2, v3, 1, v5);
+            redismock.zadd(k5, 1, v1, 1, v2, 1, v3, 1, v4, 1, v5);
+            expect(redismock.zunionstore(d, 5, k1, k2, k3, k4, k5)).to.equal(5);
+            expect(redismock.exists(d)).to.equal(1);
+            expect(redismock.type(d)).to.equal('zset');
+            var range = redismock.zrange(d, 0, -1, 'withscores');
+            expect(range).to.have.lengthOf(5*2);
+            expect(range[0]).to.equal(v2);
+            expect(range[1]).to.equal(3);
+            expect(range[2]).to.equal(v4);
+            expect(range[3]).to.equal(5);
+            expect(range[4]).to.equal(v1);
+            expect(range[5]).to.equal(6);
+            expect(range[6]).to.equal(v3);
+            expect(range[7]).to.equal(9);
+            expect(range[8]).to.equal(v5);
+            expect(range[9]).to.equal(12);
+            redismock.zrem(k4, v1, v5);
+            redismock.zunionstore(d, 5, k1, k2, k3, k4, k5, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal(5);
+                range = redismock.zrange(d, 0, -1, 'withscores');
+                expect(range).to.have.lengthOf(5*2);
+                expect(range[0]).to.equal(v1);
+                expect(range[1]).to.equal(3);
+                expect(range[2]).to.equal(v2);
+                expect(range[3]).to.equal(3);
+                expect(range[4]).to.equal(v4);
+                expect(range[5]).to.equal(5);
+                expect(range[6]).to.equal(v3);
+                expect(range[7]).to.equal(9);
+                expect(range[8]).to.equal(v5);
+                expect(range[9]).to.equal(11);
+                done();
+            });
         });
-        xit('should weight scores in keys if the weight option is given', function (done) {
+        it('should weight scores in keys if the weight option is given', function (done) {
+            var d = randkey(), k1 = randkey(), k2 = randkey(), k3 = randkey(), k4 = randkey(), k5 = randkey();
+            var v1 = 'v1', v2 = 'v2', v3 = 'v3', v4 = 'v4', v5 = 'v5';
+            redismock.zadd(k1, 1, v1, 3, v3, 5, v5);
+            redismock.zadd(k2, 1, v1, 2, v2, 3, v3, 4, v4, 5, v5);
+            redismock.zadd(k3, 0, v1, 0, v2, 0, v3, 0, v4, 0, v5);
+            redismock.zadd(k4, 3, v1, 2, v3, 1, v5);
+            redismock.zadd(k5, 1, v1, 1, v2, 1, v3, 1, v4, 1, v5);
+            expect(redismock.zunionstore(d, 5, k1, k2, k3, k4, k5, 'weights', 1, 0, 0, 0)).to.equal(5);
+            expect(redismock.exists(d)).to.equal(1);
+            expect(redismock.type(d)).to.equal('zset');
+            var range = redismock.zrange(d, 0, -1, 'withscores');
+            expect(range).to.have.lengthOf(5*2);
+            expect(range[0]).to.equal(v2);
+            expect(range[1]).to.equal(1);
+            expect(range[2]).to.equal(v4);
+            expect(range[3]).to.equal(1);
+            expect(range[4]).to.equal(v1);
+            expect(range[5]).to.equal(2);
+            expect(range[6]).to.equal(v3);
+            expect(range[7]).to.equal(4);
+            expect(range[8]).to.equal(v5);
+            expect(range[9]).to.equal(6);
+            redismock.zrem(k1, v1);
+            redismock.zrem(k2, v1);
+            redismock.zrem(k3, v1);
+            redismock.zrem(k4, v1);
+            redismock.zrem(k5, v1);
+            redismock.zunionstore(d, 5, k1, k2, k3, k4, k5, 'weights', 0, 2, 0, 3, 10, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal(4);
+                range = redismock.zrange(d, 0, -1, 'withscores');
+                expect(range).to.have.lengthOf(4*2);
+                expect(range[0]).to.equal(v2);
+                expect(range[1]).to.equal(14);
+                expect(range[2]).to.equal(v4);
+                expect(range[3]).to.equal(18);
+                expect(range[4]).to.equal(v3);
+                expect(range[5]).to.equal(22);
+                expect(range[6]).to.equal(v5);
+                expect(range[7]).to.equal(23);
+                done();
+            });
         });
-        xit('should aggregate scores in keys if the aggregate option is given', function (done) {
+        it('should aggregate scores in keys if the aggregate option is given', function (done) {
+            var d = randkey(), k1 = randkey(), k2 = randkey(), k3 = randkey(), k4 = randkey(), k5 = randkey();
+            var v1 = 'v1', v2 = 'v2', v3 = 'v3', v4 = 'v4', v5 = 'v5';
+            redismock.zadd(k1, 1, v1, 3, v3, 5, v5);
+            redismock.zadd(k2, 1, v1, 2, v2, 3, v3, 4, v4, 5, v5);
+            redismock.zadd(k3, 0, v1, 0, v2, 0, v3, 0, v4, 0, v5);
+            redismock.zadd(k4, 3, v1, 2, v3, 1, v5);
+            redismock.zadd(k5, 1, v1, 1, v2, 1, v3, 1, v4, 1, v5);
+            expect(redismock.zunionstore(d, 5, k1, k2, k3, k4, k5, 'aggregate', 'max')).to.equal(5);
+            expect(redismock.exists(d)).to.equal(1);
+            expect(redismock.type(d)).to.equal('zset');
+            var range = redismock.zrange(d, 0, -1, 'withscores');
+            expect(range).to.have.lengthOf(5*2);
+            expect(range[0]).to.equal(v2);
+            expect(range[1]).to.equal(2);
+            expect(range[2]).to.equal(v1);
+            expect(range[3]).to.equal(3);
+            expect(range[4]).to.equal(v3);
+            expect(range[5]).to.equal(3);
+            expect(range[6]).to.equal(v4);
+            expect(range[7]).to.equal(4);
+            expect(range[8]).to.equal(v5);
+            expect(range[9]).to.equal(5);
+            redismock.zrem(k2, v4);
+            redismock.zrem(k3, v4);
+            redismock.zrem(k5, v4);
+            redismock.zinterstore(d, 4, k1, k2, k4, k5, 'aggregate', 'min', function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal(3);
+                range = redismock.zrange(d, 0, -1, 'withscores');
+                expect(range).to.have.lengthOf(3*2);
+                expect(range[0]).to.equal(v1);
+                expect(range[1]).to.equal(1);
+                expect(range[2]).to.equal(v3);
+                expect(range[3]).to.equal(1);
+                expect(range[4]).to.equal(v5);
+                expect(range[5]).to.equal(1);
+                done();
+            });
         });
-        xit('should weight and aggregate if both options given', function (done) {
+        it('should weight and aggregate if both options given', function (done) {
+            var d = randkey(), k1 = randkey(), k2 = randkey(), k3 = randkey(), k4 = randkey(), k5 = randkey();
+            var v1 = 'v1', v2 = 'v2', v3 = 'v3', v4 = 'v4', v5 = 'v5';
+            redismock.zadd(k1, 1, v1, 3, v3, 5, v5);
+            redismock.zadd(k2, 1, v1, 2, v2, 3, v3, 4, v4, 5, v5);
+            redismock.zadd(k3, 0, v1, 0, v2, 0, v3, 0, v4, 0, v5);
+            redismock.zadd(k4, 3, v1, 2, v3, 1, v5);
+            redismock.zadd(k5, 1, v1, 1, v2, 1, v3, 1, v4, 1, v5);
+            expect(redismock.zunionstore(d, 5, k1, k2, k3, k4, k5, 'aggregate', 'max', 'weights', 0, 4, 9)).to.equal(5);
+            expect(redismock.exists(d)).to.equal(1);
+            expect(redismock.type(d)).to.equal('zset');
+            var range = redismock.zrange(d, 0, -1, 'withscores');
+            expect(range).to.have.lengthOf(5*2);
+            expect(range[0]).to.equal(v1);
+            expect(range[1]).to.equal(4);
+            expect(range[2]).to.equal(v2);
+            expect(range[3]).to.equal(8);
+            expect(range[4]).to.equal(v3);
+            expect(range[5]).to.equal(12);
+            expect(range[6]).to.equal(v4);
+            expect(range[7]).to.equal(16);
+            expect(range[8]).to.equal(v5);
+            expect(range[9]).to.equal(20);
+            redismock.zunionstore(d, 4, k1, k2, k4, k5, 'aggregate', 'min', 'weights', 2, 2, 2, 2, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal(5);
+                range = redismock.zrange(d, 0, -1, 'withscores');
+                expect(range).to.have.lengthOf(5*2);
+                expect(range[0]).to.equal(v1);
+                expect(range[1]).to.equal(2);
+                expect(range[2]).to.equal(v2);
+                expect(range[3]).to.equal(2);
+                expect(range[4]).to.equal(v3);
+                expect(range[5]).to.equal(2);
+                expect(range[6]).to.equal(v4);
+                expect(range[7]).to.equal(2);
+                expect(range[8]).to.equal(v5);
+                expect(range[9]).to.equal(2);
+                done();
+            });
         });
     });
 
     describe('zscan', function () {
-        xit('should zscan');
+        it('should return an error for a key that is not a zset', function (done) {
+            var k = randkey();
+            var v = 'v';
+            redismock.set(k, v);
+            expect(redismock.zscan(k, 0)).to.be.an.instanceof(Error);
+            redismock.zscan(k, 0, function (err, reply) {
+                expect(err).to.exist;
+                expect(reply).to.not.exist;
+                expect(err).to.be.an.instanceof(Error);
+                expect(err.message.indexOf('WRONGTYPE')).to.be.above(-1);
+                done();
+            });
+        });
+        it('should zscan through a small zset and return every element', function (done) {
+            var k = randkey();
+            var v1 = 'v1', v2 = 'v2', v3 = 'v3', v4 = 'v4';
+            redismock.zadd(k, 1, v1, 2, v2, 3, v3);
+            var scan = redismock.zscan(k, 0);
+            expect(scan).to.have.lengthOf(2);
+            expect(scan[0]).to.equal(3);
+            expect(scan[1][0]).to.equal(v1);
+            expect(scan[1][1]).to.equal(1);
+            expect(scan[1][2]).to.equal(v2);
+            expect(scan[1][3]).to.equal(2);
+            expect(scan[1][4]).to.equal(v3);
+            expect(scan[1][5]).to.equal(3);
+            redismock.zadd(k, 4, v4);
+            redismock.zscan(k, 0, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.have.lengthOf(2);
+                expect(reply[0]).to.equal(4);
+                expect(reply[1][0]).to.equal(v1);
+                expect(reply[1][1]).to.equal(1);
+                expect(reply[1][2]).to.equal(v2);
+                expect(reply[1][3]).to.equal(2);
+                expect(reply[1][4]).to.equal(v3);
+                expect(reply[1][5]).to.equal(3);
+                expect(reply[1][6]).to.equal(v4);
+                expect(reply[1][7]).to.equal(4);
+                done();
+            });
+        });
+        it('should zscan through a large set with cursoring', function (done) {
+            var k = randkey();
+            var set = [];
+            for (var idx = 0; idx < 62; idx += 1) {
+                set.push(idx);
+                set.push(idx.toString());
+            }
+            redismock.zadd.apply(redismock, [k].concat(set));
+            var scan, cursor = 0, scanned = [];
+            while (true) {
+                scan = redismock.zscan(k, cursor);
+                if (scan instanceof Error) {
+                    return done(scan);
+                }
+                if (!scan[1] || !scan[1].length) {
+                    break;
+                }
+                scanned = scanned.concat(scan[1]);
+                cursor = scan[0];
+            }
+            expect(scanned).to.have.lengthOf(set.length);
+            expect(set.every(function (i) {
+                return scanned.indexOf(i) !== -1;
+            })).to.be.true;
+            scan = redismock.zscan(k, cursor);
+            expect(scan[1]).to.have.lengthOf(0);
+            scanned = [];
+            var f;
+            f = function (cursor, callback) {
+                redismock.zscan(k, cursor, function (err, reply) {
+                    if (err) {
+                        return callback(err);
+                    }
+                    if (!reply[1] || !reply[1].length) {
+                        expect(scanned).to.have.lengthOf(set.length);
+                        expect(set.every(function (i) {
+                            return scanned.indexOf(i) !== -1;
+                        })).to.be.true; 
+                        return callback();
+                    }
+                    scanned = scanned.concat(reply[1]);
+                    f(reply[0], callback);
+                });
+            };
+            f(0, done);
+        });
+        it('should zscan through a large set with cursoring and a count', function (done) {
+            var k = randkey();
+            var set = [];
+            for (var idx = 0; idx < 62; idx += 1) {
+                set.push(idx);
+                set.push(idx.toString());
+            }
+            redismock.zadd.apply(redismock, [k].concat(set));
+            var scan, cursor = 0, scanned = [], count = 5;
+            while (true) {
+                scan = redismock.zscan(k, cursor, 'count', count);
+                if (scan instanceof Error) {
+                    return done(scan);
+                }
+                if (!scan[1] || !scan[1].length) {
+                    break;
+                }
+                scanned = scanned.concat(scan[1]);
+                cursor = scan[0];
+            }
+            expect(scanned).to.have.lengthOf(set.length);
+            expect(set.every(function (i) {
+                return scanned.indexOf(i) !== -1;
+            })).to.be.true;
+            scan = redismock.zscan(k, cursor, 'count', count);
+            expect(scan[1]).to.have.lengthOf(0);
+            scanned = [];
+            var f;
+            f = function (cursor, count, callback) {
+                redismock.zscan(k, cursor, 'count', count, function (err, reply) {
+                    if (err) {
+                        return callback(err);
+                    }
+                    if (!reply[1] || !reply[1].length) {
+                        expect(scanned).to.have.lengthOf(set.length);
+                        expect(set.every(function (i) {
+                            return scanned.indexOf(i) !== -1;
+                        })).to.be.true; 
+                        return callback();
+                    }
+                    scanned = scanned.concat(reply[1]);
+                    f(reply[0], count, callback);
+                });
+            };
+            f(0, 6, done);
+        });
+        it('should zscan through a large set with cursoring and a match', function (done) {
+            var k = randkey();
+            var set = [];
+            for (var idx = 0; idx < 62; idx += 1) {
+                set.push(idx);
+                set.push(idx.toString());
+            }
+            redismock.zadd.apply(redismock, [k].concat(set));
+            var scan, cursor = 0, scanned = [], match = '[0-9]'; // All single digit #s
+            while (true) {
+                scan = redismock.zscan(k, cursor, 'match', match);
+                if (scan instanceof Error) {
+                    return done(scan);
+                }
+                if (!scan[1] || !scan[1].length) {
+                    break;
+                }
+                scanned = scanned.concat(scan[1]);
+                cursor = scan[0];
+            }
+            expect(scanned).to.have.lengthOf(10*2);
+            expect(scanned.every(function (i) {
+                return i.toString().length === 1 && set.indexOf(i) !== -1;
+            })).to.be.true;
+            scan = redismock.zscan(k, cursor, 'match', match);
+            expect(scan[1]).to.have.lengthOf(0);
+            scanned = [];
+            var f;
+            f = function (cursor, match, callback) {
+                redismock.zscan(k, cursor, 'match', match, function (err, reply) {
+                    if (err) {
+                        return callback(err);
+                    }
+                    if (!reply[1] || !reply[1].length) {
+                        expect(scanned).to.have.lengthOf(52*2);
+                        expect(scanned.every(function (i) {
+                            return i.toString().length === 2 && set.indexOf(i) !== -1;
+                        })).to.be.true; 
+                        return callback();
+                    }
+                    scanned = scanned.concat(reply[1]);
+                    f(reply[0], match, callback);
+                });
+            };
+            f(0, '[0-9]?', done); // All two digit numbers
+        });
+        it('should zscan through a large set with cursoring, a count, and a match', function (done) {
+            var k = randkey();
+            var set = [];
+            for (var idx = 0; idx < 62; idx += 1) {
+                set.push(idx);
+                set.push(idx.toString());
+            }
+            redismock.zadd.apply(redismock, [k].concat(set));
+            var scan, cursor = 0, scanned = [], count = 4, match = '[0-9]'; // All single digit #s
+            while (true) {
+                scan = redismock.zscan(k, cursor, 'count', count, 'match', match);
+                if (scan instanceof Error) {
+                    return done(scan);
+                }
+                if (!scan[1] || !scan[1].length) {
+                    break;
+                }
+                scanned = scanned.concat(scan[1]);
+                cursor = scan[0];
+            }
+            expect(scanned).to.have.lengthOf(10*2);
+            expect(scanned.every(function (i) {
+                return i.toString().length === 1 && set.indexOf(i) !== -1;
+            })).to.be.true;
+            scan = redismock.zscan(k, cursor, 'match', match);
+            expect(scan[1]).to.have.lengthOf(0);
+            scanned = [];
+            var f;
+            f = function (cursor, count, match, callback) {
+                redismock.zscan(k, cursor, 'count', count, 'match', match, function (err, reply) {
+                    if (err) {
+                        return callback(err);
+                    }
+                    if (!reply[1] || !reply[1].length) {
+                        expect(scanned).to.have.lengthOf(52*2);
+                        expect(scanned.every(function (i) {
+                            return i.toString().length === 2 && set.indexOf(i) !== -1;
+                        })).to.be.true; 
+                        return callback();
+                    }
+                    scanned = scanned.concat(reply[1]);
+                    f(reply[0], count, match, callback);
+                });
+            };
+            f(0, 7, '[0-9]?', done); // All two digit numbers
+        });
     });
 }).call(this);
