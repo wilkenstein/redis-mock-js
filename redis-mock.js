@@ -2593,17 +2593,13 @@
     redismock.multi = function () {
         var rc = {};
         var that = this;
-        var err;
         var toApply = [], replies = [];
         Object.keys(this).forEach(function (key) {
             rc[key] = function () {
                 var args = Array.prototype.slice.call(arguments);
-                if (err) {
-                    return;
-                }
                 args.push(function (error, reply) {
                     if (error) {
-                        err = error;
+                        replies.push(error.message);
                     }
                     else {
                         replies.push(reply);
@@ -2627,7 +2623,7 @@
             toApply.forEach(function (apply) {
                 apply[1].apply(apply[2], apply[3]);
             });
-            return cb(callback)(err, replies);
+            return cb(callback)(null, replies);
         };
         return rc;
     };
