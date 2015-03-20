@@ -328,6 +328,8 @@ JavaScript engines, a somewhat specific style is required:
   - HyperLogLog support.
 
 ## Versions
+* 0.0.11-1
+  - Fix to lpop/rpop to del the key if the list becomes empty as a result of the operation.
 * 0.0.11
   - All hash commands implemented.
   - Unit tests for new hash commands.
