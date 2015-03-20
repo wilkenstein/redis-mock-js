@@ -49,7 +49,7 @@
     </div>
     <div class="col-md-6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">3080</p>
+      <p class="stat">3163</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="col-md-6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">296.81</p>
+      <p class="stat">303.03</p>
     </div>
     <div class="col-md-6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">40.21</p>
+      <p class="stat">41.39</p>
     </div>
   </div>
 </div>
@@ -2531,11 +2531,46 @@
     };
 
     redismock.hincrby = function (key, field, increment, callback) {
-        return cb(callback)(new Error(&#039;UNIMPLEMENTED&#039;));
+        increment = parseInt(increment, 10);
+        return this
+            .ifType(key, &#039;hash&#039;, callback)
+            .thennx(function () { cache[hashes][key] = {}; })
+            .then(function () {
+                var no;
+                if (this.hexists(key, field) === 0) {
+                    this.hset(key, field, increment);
+                }
+                else {
+                    no = parseInt(this.hget(key, field), 10);
+                    if (isNaN(no)) {
+                        return new Error(&#039;ERR hash value is not an integer&#039;);
+                    }
+                    this.hset(key, field, no + increment);
+                }
+                return this.hget(key, field);
+            })
+            .end();
     };
 
     redismock.hincrbyfloat = function (key, field, increment, callback) {
-        return cb(callback)(new Error(&#039;UNIMPLEMENTED&#039;));
+        return this
+            .ifType(key, &#039;hash&#039;, callback)
+            .thennx(function () { cache[hashes][key] = {}; })
+            .then(function () {
+                var no;
+                if (this.hexists(key, field) === 0) {
+                    this.hset(key, field, increment);
+                }
+                else {
+                    no = parseFloat(this.hget(key, field));
+                    if (isNaN(no)) {
+                        return new Error(&#039;ERR hash value is not a valid float&#039;);
+                    }
+                    this.hset(key, field, no + increment);
+                }
+                return this.hget(key, field);
+            })
+            .end();
     };
 
     redismock.hkeys = function (key, callback) {
@@ -2652,7 +2687,16 @@
     };
 
     redismock.hstrlen = function (key, field, callback) {
-        return cb(callback)(new Error(&#039;UNIMPLEMENTED&#039;));
+        return this
+            .ifType(key, &#039;hash&#039;, callback)
+            .thennx(function () { return 0; })
+            .thenex(function () {
+                if (!exists(cache[hashes][key][field])) {
+                    return 0;
+                }
+                return (cache[hashes][key][field].toString()).length;
+            })
+            .end();
     };
 
     redismock.hvals = function (key, callback) {
@@ -2674,7 +2718,46 @@
     };
 
     redismock.hscan = function (key, cursor, callback) {
-        return cb(callback)(new Error(&#039;UNIMPLEMENTED&#039;));
+        var g = gather(this.hscan).apply(this, arguments);
+        var count, match;
+        g
+            .list
+            .forEach(function (option, index) {
+                if (option === &#039;count&#039;) {
+                    count = g.list[index + 1];
+                }
+                if (option === &#039;match&#039;) {
+                    match = new RegExp(translate(g.list[index + 1]));
+                }
+            });
+        if (typeof count === &#039;undefined&#039; || isNaN(parseInt(count, 10))) {
+            count = 10;
+        }
+        callback = g.callback;
+        return this
+            .ifType(key, &#039;hash&#039;, callback)
+            .then(function () {
+                var arr = [];
+                this
+                    .hgetall(key)
+                    .slice(cursor*2)
+                    .some(function (forv, index, hgetall) {
+                        if (index % 2 !== 0) {
+                            return false;
+                        }
+                        if (typeof match === &#039;undefined&#039; || forv.match(match)) {
+                            arr.push([forv, hgetall[index + 1]]);
+                        }
+                        cursor += 1;
+                        return arr.length &gt;= count;
+                    });
+                arr = arr.reduce(function (prev, fv) {
+                    return prev.concat(fv);
+                }, []);
+                return [cursor, arr];
+            })
+            .end();
+
     };
 
     // Pub/Sub Commands

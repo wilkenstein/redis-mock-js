@@ -2439,11 +2439,46 @@
     };
 
     redismock.hincrby = function (key, field, increment, callback) {
-        return cb(callback)(new Error('UNIMPLEMENTED'));
+        increment = parseInt(increment, 10);
+        return this
+            .ifType(key, 'hash', callback)
+            .thennx(function () { cache[hashes][key] = {}; })
+            .then(function () {
+                var no;
+                if (this.hexists(key, field) === 0) {
+                    this.hset(key, field, increment);
+                }
+                else {
+                    no = parseInt(this.hget(key, field), 10);
+                    if (isNaN(no)) {
+                        return new Error('ERR hash value is not an integer');
+                    }
+                    this.hset(key, field, no + increment);
+                }
+                return this.hget(key, field);
+            })
+            .end();
     };
 
     redismock.hincrbyfloat = function (key, field, increment, callback) {
-        return cb(callback)(new Error('UNIMPLEMENTED'));
+        return this
+            .ifType(key, 'hash', callback)
+            .thennx(function () { cache[hashes][key] = {}; })
+            .then(function () {
+                var no;
+                if (this.hexists(key, field) === 0) {
+                    this.hset(key, field, increment);
+                }
+                else {
+                    no = parseFloat(this.hget(key, field));
+                    if (isNaN(no)) {
+                        return new Error('ERR hash value is not a valid float');
+                    }
+                    this.hset(key, field, no + increment);
+                }
+                return this.hget(key, field);
+            })
+            .end();
     };
 
     redismock.hkeys = function (key, callback) {
@@ -2560,7 +2595,16 @@
     };
 
     redismock.hstrlen = function (key, field, callback) {
-        return cb(callback)(new Error('UNIMPLEMENTED'));
+        return this
+            .ifType(key, 'hash', callback)
+            .thennx(function () { return 0; })
+            .thenex(function () {
+                if (!exists(cache[hashes][key][field])) {
+                    return 0;
+                }
+                return (cache[hashes][key][field].toString()).length;
+            })
+            .end();
     };
 
     redismock.hvals = function (key, callback) {
@@ -2582,7 +2626,46 @@
     };
 
     redismock.hscan = function (key, cursor, callback) {
-        return cb(callback)(new Error('UNIMPLEMENTED'));
+        var g = gather(this.hscan).apply(this, arguments);
+        var count, match;
+        g
+            .list
+            .forEach(function (option, index) {
+                if (option === 'count') {
+                    count = g.list[index + 1];
+                }
+                if (option === 'match') {
+                    match = new RegExp(translate(g.list[index + 1]));
+                }
+            });
+        if (typeof count === 'undefined' || isNaN(parseInt(count, 10))) {
+            count = 10;
+        }
+        callback = g.callback;
+        return this
+            .ifType(key, 'hash', callback)
+            .then(function () {
+                var arr = [];
+                this
+                    .hgetall(key)
+                    .slice(cursor*2)
+                    .some(function (forv, index, hgetall) {
+                        if (index % 2 !== 0) {
+                            return false;
+                        }
+                        if (typeof match === 'undefined' || forv.match(match)) {
+                            arr.push([forv, hgetall[index + 1]]);
+                        }
+                        cursor += 1;
+                        return arr.length >= count;
+                    });
+                arr = arr.reduce(function (prev, fv) {
+                    return prev.concat(fv);
+                }, []);
+                return [cursor, arr];
+            })
+            .end();
+
     };
 
     // Pub/Sub Commands

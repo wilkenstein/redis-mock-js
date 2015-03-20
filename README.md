@@ -1,6 +1,6 @@
 # redis-mock-js
 An in-memory redis-compatible implementation written in pure
-javascript.
+javascript. Part of the [Rarefied Redis Project](http://wilkenstein.github.io/rarefied-redis/).
 
 ### Status
 [![Build Status](https://travis-ci.org/wilkenstein/redis-mock-js.svg?branch=master)](https://travis-ci.org/wilkenstein/redis-mock-js)
@@ -229,15 +229,33 @@ $ npm run implemented
 $ npm run unimplemented
 ````
 
-Theses two commands will print out all the implemented and unimplemented commands, respectively.
+Theses two commands will print out all the implemented and
+unimplemented commands, respectively.
 
-NOTE: version 0.0.5 will have full support for implemented and
-unimplemented. Versions <= 0.0.4 do <i>not</i> support these commands
-and will be deprecated at some point.
+## Performance
+
+Since premature optimization is the root of all evil, and since this
+project is aimed at being written in pure JavaScript, and since this
+project started as a library for unit testing, performance has not
+been a primary concern. However, there have been some efforts to
+ensure at least decent performance. For instance, the set
+diff/inter/union commands, and sorted sets.
+
+Going forward, load tests are in `test/load`. Currently, there are
+some load tests for sets and sorted sets to ensure decent
+performance. We are in JavaScript, so memory consumption can vary
+wildly depending on the particular load, time of day, and how many
+sugars the Queen of England put in her tea this afternoon.
+
+The load tests can be run via `npm run load-test`. YMMV.
 
 ## Contributing
 
-All contributions welcome! Issues or Pull Requests. For PRs, `npm test`, `npm
+All contributions welcome! The best places to contribute right now are
+command implementations and unit tests. We're closing in on a 0.1.0
+release, only a few more commands to go!
+
+Issues or Pull Requests. For PRs, `npm test`, `npm
 run test-phantomjs`, and `npm run build-min && npm run test-min` must
 all succeed and test the new code before the PR will be considered.
 
@@ -310,6 +328,9 @@ JavaScript engines, a somewhat specific style is required:
   - HyperLogLog support.
 
 ## Versions
+* 0.0.11
+  - All hash commands implemented.
+  - Unit tests for new hash commands.
 * 0.0.10-2
   - Sorted Set time improvements at the cost of memory.
 * 0.0.10-1

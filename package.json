@@ -6,7 +6,7 @@
         "url": "git://github.com/wilkenstein/redis-mock-js.git"
     },
     "main": "redis-mock.js",
-    "version": "0.0.10-2",
+    "version": "0.0.11",
     "devDependencies": {
         "jshint": "2.3.0",
         "q": "~1.0",
@@ -44,6 +44,7 @@
         "pretest-min": "mv redis-mock.js redis-mock.js.bkp && cp redis-mock-min.js redis-mock.js",
         "test-min": "./node_modules/.bin/_mocha -R spec -t 60s -s 5s test/mocha",
         "posttest-min": "mv redis-mock.js.bkp redis-mock.js",
+        "load-test": "./node_modules/.bin/_mocha -R spec -t 60s test/load",
         "doc": "docco redis-mock.js"
     },
     "license": "MIT",
