@@ -1105,7 +1105,13 @@
     redismock.lpop = function (key, callback) {
         return this
             .ifType(key, 'list', callback)
-            .thenex(function () { return cache[key].shift(); })
+            .thenex(function () { 
+                var popped = cache[key].shift();
+                if (!cache[key].length) {
+                    this.del(key);
+                }
+                return popped;
+            })
             .thennx(function () { return null; })
             .end();
     };
@@ -1238,7 +1244,13 @@
     redismock.rpop = function (key, callback) {
         return this
             .ifType(key, 'list', callback)
-            .thenex(function () { return cache[key].pop(); })
+            .thenex(function () { 
+                var popped = cache[key].pop(); 
+                if (!cache[key].length) {
+                    this.del(key);
+                }
+                return popped;
+            })
             .thennx(function () { return null; })
             .end();
     };
