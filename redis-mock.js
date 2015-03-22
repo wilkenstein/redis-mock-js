@@ -100,7 +100,7 @@
     // The database.
     var cache = {};
     var timeouts = {};
-    var mySubscriptions = {};
+    var subscribers = [];
     var watchers = {};
     var sets = 'sets-' + Math.random();
     var zsets = 'zsets-' + Math.random();
@@ -2683,65 +2683,191 @@
     // Pub/Sub Commands
     // ----------------
 
+    redismock.on = function (event, callback) {
+        if (!exists(this.listeners)) {
+            this.listeners = {};
+        }
+        if (!exists(this.listeners[event])) {
+            this.listeners[event] = [];
+        }
+        this.listeners[event].push(callback);
+        return this;
+    };
+    function emit(rm, event, arg) {
+        var g = gather(emit).apply(this, arguments);
+        if (exists(rm.listeners[event])) {
+            rm.listeners[event]
+                .forEach(function (cb) {
+                    setImmediate(function () {
+                        cb.apply(rm, g.list.slice(1));
+                    });
+                });
+        }
+        return this;
+    };
+
+    function Subscriber(rm) {
+        this.rm = rm;
+        return this;
+    }
+    Subscriber.prototype.subscribe = function (channel) {
+        this.channel = channel;
+        emit(this.rm, "subscribe", channel, subscribers.length);
+        return this;
+    };
+    Subscriber.prototype.psubscribe = function (pattern) {
+        this.originalPattern = pattern;
+        this.pattern = new RegExp(translate(pattern));
+        emit(this.rm, "psubscribe", pattern, subscribers.length);
+        return this;
+    };
+    Subscriber.prototype.matches = function (channel) {
+        if (exists(this.channel) && this.channel === channel) {
+            return true;
+        }
+        if (exists(this.pattern) && channel.match(this.pattern)) {
+            return true;
+        }
+        return false;
+    };
+    Subscriber.prototype.message = function (channel, message) {
+        if (this.matches(channel)) {
+            if (exists(this.channel)) {
+                emit(this.rm, "message", channel, message);
+            }
+            else if (exists(this.pattern)) {
+                emit(this.rm, "pmessage", this.originalPattern, channel, message);
+            }
+        }
+        return this;
+    };
+
     redismock.psubscribe = function (pattern, callback) {
-        return cb(callback)(new Error('UNIMPLEMENTED'));
+        var that = this;
+        var g = gather(this.psubscribe).apply(this, arguments);
+        callback = g.callback;
+        g
+            .list
+            .forEach(function (pat) {
+                subscribers.push((new Subscriber(that)).psubscribe(pat));
+            });
+        return cb(callback)(null, "OK");
     };
 
     redismock.pubsub = function (subcommand, callback) {
-        return cb(callback)(new Error('UNIMPLEMENTED'));
+        var g = gather(this.pubsub).apply(this, arguments);
+        var ret = null, pat;
+        if (subcommand === "channels") {
+            if (g.list.length) {
+                pat = new RegExp(translate(g.list[1]));
+            }
+            ret = subscribers
+                .map(function (subscriber) {
+                    if (exists(subscriber.channel) && (!g.list.length || subscriber.channel.match(pat))) {
+                        return subscriber.channel;
+                    }
+                    return null;
+                })
+                .filter(function (channel) {
+                    return channel !== null;
+                });
+        }
+        else if (subcommand === "numsub") {
+            ret = g
+                .list
+                .map(function (channel) {
+                    return subscribers
+                        .reduce(function (subscriber, count) {
+                            if (subscriber.channel === channel) {
+                                return count + 1;
+                            }
+                            return count;
+                        }, 0);
+                })
+                .reduce(function (flattened, cc) {
+                    return flattened.concat(cc);
+                }, []);
+        }
+        else if (subcommand === "numpat") {
+            ret = subscribers
+                .reduce(function (subscriber, count) {
+                    if (exists(subscriber.pattern)) {
+                        return count + 1;
+                    }
+                    return count;
+                }, 0);
+        }
+        return cb(callback)(null, ret);
     };
 
     redismock.publish = function (channel, message, callback) {
-        if (channel in mySubscriptions) {
-            mySubscriptions[channel].forEach(function (caller) {
-                cb(caller)(channel, message);
+        subscribers
+            .forEach(function (subscriber) {
+                subscriber.message(channel, message);
             });
-        }
         return cb(callback)(null, 'OK');
     };
 
     redismock.punsubscribe = function (callback) {
-        return cb(callback)(new Error('UNIMPLEMENTED'));
+        var that = this;
+        var g = gather(this.punsubscribe).apply(this, arguments);
+        var newCount = subscribers.length;
+        callback = g.callback;
+        if (!g.list) {
+            subscribers = subscribers
+                .filter(function (subscriber) {
+                    if (exists(subscriber.pattern)) {
+                        newCount -= 1;
+                        emit(that, "punsubscribe", subscriber.pattern, newCount);
+                    }
+                    return !exists(subscriber.pattern);
+                });
+        }
+        else {
+            g
+                .list
+                .forEach(function (pattern) {
+                    subscribers = subscribers
+                        .filter(function (subscriber) {
+                            if (subscriber.pattern === pattern) {
+                                newCount -= 1;
+                                emit(that, "punsubscribe", pattern, newCount);
+                                return false;
+                            }
+                            return true;
+                        });
+                });
+        }
+        return cb(callback)(null, "OK");
     };
 
     redismock.subscribe = function (channel, callback) {
-        var idx, len = arguments.length;
-        var channels = [channel];
-        if (len >= 2) {
-            for (idx = 1; idx < len; idx += 1) {
-                if (typeof arguments[idx] === "function") {
-                    callback = arguments[idx];
-                }
-                else if (arguments[idx]) {
-                    channels.push(arguments[idx]);
-                }
-            }
-        }
-        channels.forEach(function (channel) {
-            if (!(channel in mySubscriptions)) {
-                mySubscriptions[channel] = [];
-            }
-            mySubscriptions[channel].push(callback);
-        });
+        var that = this;
+        var g = gather(this.subscribe).apply(this, arguments);
+        callback = g.callback;
+        g
+            .list
+            .forEach(function (chan) {
+                subscribers.push((new Subscriber(that)).subscribe(channel));
+            });
+        return cb(callback)(null, "OK");
     };
 
     redismock.unsubscribe = function (channel, callback) {
-        var idx, len = arguments.length;
-        var channels = [channel];
-        if (!channel) {
-            mySubscriptions = {};
+        var g = gather(this.unsubscribe).apply(this, arguments);
+        callback = g.callback;
+        if (!g.list.length) {
+            subscribers = [];
         }
-        else if (len >= 2) {
-            for (idx = 1; idx < len; idx += 1) {
-                if (arguments[idx]) {
-                    channels.push(arguments[idx]);
-                }
-            }
-            channels.forEach(function (channel) {
-                if (channel in mySubscriptions) {
-                    delete mySubscriptions[channel];
-                }
-            });
+        else {
+            g
+                .list
+                .forEach(function (chan) {
+                    subscribers = subscribers
+                        .filter(function (subscriber) {
+                            return subscriber.channel !== chan;
+                        });
+                });
         }
         return cb(callback)(null, 'OK');
     };
@@ -2850,6 +2976,10 @@
 
     redismock.select = function (callback) {
         return cb(callback)(new Error('UNIMPLEMENTED'));
+    };
+
+    redismock.createClient = function () {
+        return redismock.copy();
     };
 
     // Server Commands
@@ -3124,7 +3254,9 @@
     redismock.copy = function () {
         var copied = {};
         fkeys.forEach(function (key) {
-            copied[key] = redismock[key];
+            copied[key] = function () {
+                return redismock[key].apply(copied, arguments)
+            };
         });
         copied.toPromiseStyle = redismock.toPromiseStyle;
         return copied;
