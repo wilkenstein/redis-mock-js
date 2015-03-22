@@ -2693,18 +2693,17 @@
         this.listeners[event].push(callback);
         return this;
     };
-    function emit(rm, event, arg) {
-        var g = gather(emit).apply(this, arguments);
+    function emit(rm, event) {
+        var g = gather(emit).apply(null, arguments);
         if (exists(rm.listeners[event])) {
             rm.listeners[event]
                 .forEach(function (cb) {
                     setImmediate(function () {
-                        cb.apply(rm, g.list.slice(1));
+                        cb.apply(rm, g.list.slice(2));
                     });
                 });
         }
-        return this;
-    };
+    }
 
     function Subscriber(rm) {
         this.rm = rm;
@@ -2848,7 +2847,7 @@
         g
             .list
             .forEach(function (chan) {
-                subscribers.push((new Subscriber(that)).subscribe(channel));
+                subscribers.push((new Subscriber(that)).subscribe(chan));
             });
         return cb(callback)(null, "OK");
     };
@@ -3095,7 +3094,6 @@
         cache[zsets] = {};
         cache[hashes] = {};
         watchers = {};
-        mySubscriptions = {};
         Object.keys(timeouts).forEach(function (key) {
             if (timeouts[key]) {
                 clearTimeout(timeouts[key].timeout);
@@ -3255,7 +3253,7 @@
         var copied = {};
         fkeys.forEach(function (key) {
             copied[key] = function () {
-                return redismock[key].apply(copied, arguments)
+                return redismock[key].apply(copied, arguments);
             };
         });
         copied.toPromiseStyle = redismock.toPromiseStyle;
