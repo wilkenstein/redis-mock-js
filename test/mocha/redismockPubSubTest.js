@@ -152,7 +152,74 @@
     });
 
     describe('punsubscribe', function () {
-        xit('should punsubscribe');
+        xit('should do nothing if the pattern is not subscribed');
+        it('should punsubscribe from a subscribed pattern', function (done) {
+            var chan = randkey('hot');
+            var msg1 = "hello!", msg2 = "goodbye!";
+            redismock
+                .createClient()
+                .on("punsubscribe", function (pattern) {
+                    expect(pattern).to.equal('h?t*');
+                    redismock.publish(chan, msg2);
+                    setTimeout(function () {
+                        done();
+                    }, 1000);
+                })
+                .on("pmessage", function (pattern, channel, message) {
+                    expect(pattern).to.equal("h?t*");
+                    expect(channel).to.equal(chan);
+                    expect(message).to.equal(msg1);
+                    this.punsubscribe("h?t*");
+                })
+                .psubscribe("h?t*");
+            expect(redismock.publish(chan, msg1)).to.equal(1);
+        });
+        it('should punsubscribe from subscribed patterns', function (done) {
+            var chan1 = randkey('not'), chan2 = randkey('or');
+            var msg1 = "hello again!", msg2 = "goodbye again!";
+            var pat1 = 'n??*', pat2 = '[ho]r*';
+            var count = 2, cnt = 0;
+            redismock
+                .createClient()
+                .on("punsubscribe", function (pattern) {
+                    var idx = [pat1, pat2].indexOf(pattern);
+                    expect(idx).to.be.above(-1);
+                    if (idx === 0) {
+                        redismock.publish(chan1, msg1);
+                        setTimeout(function () {
+                            cnt += 1;
+                            if (count === cnt) {
+                                done();
+                            }
+                        }, 1000);
+                    }
+                    else {
+                        redismock.publish(chan2, msg2);
+                        setTimeout(function () {
+                            cnt += 1;
+                            if (count === cnt) {
+                                done();
+                            }
+                        }, 1000);
+                    }
+                })
+                .on("pmessage", function (pattern, channel, message) {
+                    var idx = [pat1, pat2].indexOf(pattern);
+                    expect(idx).to.be.above(-1);
+                    if (idx === 0) {
+                        expect(channel).to.equal(chan1);
+                        this.punsubscribe(pat1);
+                    }
+                    else {
+                        expect(channel).to.equal(chan2);
+                        this.punsubscribe(pat2);
+                    }
+                })
+                .psubscribe(pat1, pat2);
+            expect(redismock.publish(chan1, msg1)).to.equal(1);
+            expect(redismock.publish(chan2, msg2)).to.equal(1);
+        });
+        xit('should punsubscribe from all subscribed patterns');
     });
 
     describe('subscribe', function () {

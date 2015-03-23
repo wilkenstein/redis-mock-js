@@ -198,7 +198,7 @@
             var callback;
             var list = [];
             for (idx = len - 1; idx >= 0; idx -= 1) {
-                if (typeof arguments[idx] === "function") {
+                if (!callback && typeof arguments[idx] === "function") {
                     callback = arguments[idx];
                 }
                 else if (exists(arguments[idx])) {
@@ -2700,7 +2700,9 @@
         if (exists(rm.listeners[event])) {
             rm.listeners[event]
                 .forEach(function (cb) {
-                    cb.apply(rm, g.list.slice(2));
+                    setImmediate(function () {
+                        cb.apply(rm, g.list.slice(2));
+                    });
                 });
         }
     }
@@ -2741,6 +2743,15 @@
             }
         }
         return false;
+    };
+    Subscriber.prototype.unsubscribe = function (count) {
+        if (exists(this.channel)) {
+            emit(this.rm, "unsubscribe", this.channel, count);
+        }
+        if (exists(this.pattern)) {
+            emit(this.rm, "punsubscribe", this.originalPattern, count);
+        }
+        return this;
     };
 
     redismock.psubscribe = function (pattern, callback) {
@@ -2820,9 +2831,12 @@
         if (!g.list) {
             subscribers = subscribers
                 .filter(function (subscriber) {
+                    if (subscriber.rm !== that) {
+                        return true;
+                    }
                     if (exists(subscriber.pattern)) {
                         newCount -= 1;
-                        emit(that, "punsubscribe", subscriber.pattern, newCount);
+                        subscriber.unsubscribe(newCount);
                     }
                     return !exists(subscriber.pattern);
                 });
@@ -2833,9 +2847,12 @@
                 .forEach(function (pattern) {
                     subscribers = subscribers
                         .filter(function (subscriber) {
-                            if (subscriber.pattern === pattern) {
+                            if (subscriber.rm !== that) {
+                                return true;
+                            }
+                            if (subscriber.originalPattern === pattern) {
                                 newCount -= 1;
-                                emit(that, "punsubscribe", pattern, newCount);
+                                subscriber.unsubscribe(newCount);
                                 return false;
                             }
                             return true;
@@ -2859,9 +2876,20 @@
 
     redismock.unsubscribe = function (channel, callback) {
         var g = gather(this.unsubscribe).apply(this, arguments);
+        var newCount = subscribers.length;
         callback = g.callback;
-        if (!g.list.length) {
-            subscribers = [];
+        if (!g.list) {
+            subscribers = subscribers
+                .filter(function (subscriber) {
+                    if (subscriber.rm !== that) {
+                        return true;
+                    }
+                    if (exists(subscriber.channel)) {
+                        newCount -= 1;
+                        subscriber.unsubscribe(newCount);
+                    }
+                    return !exists(subscriber.channel);
+                });
         }
         else {
             g
@@ -2869,6 +2897,13 @@
                 .forEach(function (chan) {
                     subscribers = subscribers
                         .filter(function (subscriber) {
+                            if (subscriber.rm !== that) {
+                                return true;
+                            }
+                            if (subscriber.channel === chan) {
+                                newCount -= 1;
+                                subscriber.unsubscribe(newCount);
+                            }
                             return subscriber.channel !== chan;
                         });
                 });
