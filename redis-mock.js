@@ -192,7 +192,7 @@
         };
     };
 
-    var gather = function (f) {
+    var gather = function () {
         return function () {
             var idx, len = arguments.length;
             var callback;
@@ -2804,7 +2804,7 @@
     redismock.publish = function (channel, message, callback) {
         var count = subscribers
             .reduce(function (cnt, subscriber) {
-                if (subscriber.message(channel, message)) {
+                if (subscriber.message(channel.toString(), message.toString())) {
                     return cnt + 1;
                 }
                 return cnt;
