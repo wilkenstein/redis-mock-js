@@ -135,33 +135,55 @@ The redis-mock object is exported onto the global `window` object as
 })();
 ````
 
-### toPromiseStyle
+### createClient
 
-A convenience function exists on the redismock object to turn all the
-redis commands into a Promise style. This function takes a Factory
-Function that creates deferred objects, e.g., `Q.defer` or
-`jQuery.Deferred`. Example usage:
+`redismock` supports the createClient function. Currently, it ignores any arguments given to it,
+and returns a copy hooked up to the same database as the instatiating `redismock` object.
+Example usage in node.js/io.js:
 
 ````javascript
-var Q = require('q');
-var redis = require('redis-js').toPromiseStyle(Q.defer);
+var redis = require('redis-js');
+redisClient = redis.createClient();
+redisClient.set("key", "value");
+console.log(redisClient.get("key"));
+// "value" appears on the console.
+````
 
-function setGetAsPromise() {
-    return redis
-        .set('key', 'value')
-        .then(function () {
-            return redis.get('key');
-        })
-        .then(function (value) {
-            console.log(value);
-        })
-        .fail(function (err) {
-            // Should not be exercised.
-            console.log(err);
-        })
-        .done();
-}
-setGetAsPromise() // On console, 'value' should be logged.
+### Pub/Sub
+
+`redismock` supports all redis pub/sub commands. It models its subscription usage after the 
+[node_redis](https://github.com/mranney/node_redis) package. Unlike redis, `redismock` currently
+does not care if we put a client into subscriber mode. That may change in the future, though
+it shouldn't affect testing, since we shouldn't be issuing other commands in subscriber mode
+anyways!
+
+When in subscriber mode, `message`, `pmessage, `subscribe`, `psubscribe`, `unsubscribe`, and `punsubscribe`
+events are issued on the `redismock` instance (or client instance). Example usage:
+
+````javascript
+(function () {
+
+    var redis = this.redismock;
+
+    var subscriber = redis.createClient();
+    subscriber
+    .on('subscribe', function (channel) {
+        console.log('subscribed to ' + channel);
+    })
+    .on('message', function (channel, message) {
+        console.log('message ' + message + ' from ' + channel);
+    })
+    .subscribe('channel');
+
+    var publisher = redis.createClient();
+    publisher.publish('channel', 'message');
+
+    // On the console, 
+    //     'subscribed to channel'
+    //     'message message from channel'
+    // should be logged on execution of this script.
+
+})();
 ````
 
 ### toNodeRedis
@@ -216,6 +238,35 @@ client
 //   1
 ````
 
+### toPromiseStyle
+
+A convenience function exists on the redismock object to turn all the
+redis commands into a Promise style. This function takes a Factory
+Function that creates deferred objects, e.g., `Q.defer` or
+`jQuery.Deferred`. Example usage:
+
+````javascript
+var Q = require('q');
+var redis = require('redis-js').toPromiseStyle(Q.defer);
+
+function setGetAsPromise() {
+    return redis
+        .set('key', 'value')
+        .then(function () {
+            return redis.get('key');
+        })
+        .then(function (value) {
+            console.log(value);
+        })
+        .fail(function (err) {
+            // Should not be exercised.
+            console.log(err);
+        })
+        .done();
+}
+setGetAsPromise() // On console, 'value' should be logged.
+````
+
 ## Supported Commands
 
 The goal is to have one-to-one feature parity with all redis commands, so that this implementation can simply be dropped into an existing redis-backed codebase. Redis has a lot of commands! Some of them are easy, and some are quite complex.
@@ -258,6 +309,9 @@ release, only a few more commands to go!
 Issues or Pull Requests. For PRs, `npm test`, `npm
 run test-phantomjs`, and `npm run build-min && npm run test-min` must
 all succeed and test the new code before the PR will be considered.
+
+If you'd like to become even more active in the project, drop @wilkenstein
+a line!
 
 ## Testing
 
@@ -328,6 +382,9 @@ JavaScript engines, a somewhat specific style is required:
   - HyperLogLog support.
 
 ## Versions
+* 0.0.11-2
+  - Implement pub/sub in earnest.
+  - Unit test pub/sub.
 * 0.0.11-1
   - Fix to lpop/rpop to del the key if the list becomes empty as a result of the operation.
 * 0.0.11

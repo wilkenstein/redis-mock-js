@@ -49,7 +49,8 @@
         'toPromiseStyle',
         'copy',
         'toNodeRedis',
-        'createClient'
+        'createClient',
+        'unsubscribe'
     ];
 
     describe('args check', function () {

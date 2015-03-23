@@ -152,7 +152,17 @@
     });
 
     describe('punsubscribe', function () {
-        xit('should do nothing if the pattern is not subscribed');
+        it('should do nothing if the pattern is not subscribed', function (done) {
+            var client = redismock.createClient();
+            client
+                .on("punsubscribe", function () {
+                    expect(true).to.be.false;
+                });
+            client.punsubscribe("nothing");
+            setTimeout(function () {
+                done();
+            }, 1000);
+        });
         it('should punsubscribe from a subscribed pattern', function (done) {
             var chan = randkey('hot');
             var msg1 = "hello!", msg2 = "goodbye!";
@@ -219,15 +229,222 @@
             expect(redismock.publish(chan1, msg1)).to.equal(1);
             expect(redismock.publish(chan2, msg2)).to.equal(1);
         });
-        xit('should punsubscribe from all subscribed patterns');
+        it('should punsubscribe from all subscribed patterns', function (done) {
+            this.timeout(5000);
+            var chan1 = randkey('hope'), chan2 = randkey('against'), chan3 = randkey('dope');
+            var msg1 = "hello again again!", msg2 = "goodbye again again!", msg3 = "hey you guys!";
+            var pat1 = 'hope*', pat2 = 'against*', pat3 = 'dope*';
+            var count = 3, cnt = 0;
+            redismock
+                .createClient()
+                .on("punsubscribe", function (pattern) {
+                    var idx = [pat1, pat2, pat3].indexOf(pattern);
+                    expect(idx).to.be.above(-1);
+                    if (idx === 0) {
+                        redismock.publish(chan1, msg1);
+                        setTimeout(function () {
+                            cnt += 1;
+                            if (count === cnt) {
+                                done();
+                            }
+                        }, 1000);
+                    }
+                    else if (idx === 1) {
+                        redismock.publish(chan2, msg2);
+                        setTimeout(function () {
+                            cnt += 1;
+                            if (count === cnt) {
+                                done();
+                            }
+                        }, 1000);
+                    }
+                    else {
+                        redismock.publish(chan3, msg3);
+                        setTimeout(function () {
+                            cnt += 1;
+                            if (count === cnt) {
+                                done();
+                            }
+                        }, 1000);
+                    }
+                })
+                .on("pmessage", function (pattern, channel, message) {
+                    var idx = [pat1, pat2, pat3].indexOf(pattern);
+                    expect(idx).to.be.above(-1);
+                    if (idx === 2) {
+                        expect(channel).to.equal(chan3);
+                        this.punsubscribe();
+                    }
+                })
+                .psubscribe(pat1, pat2, pat3);
+            expect(redismock.publish(chan1, msg1)).to.equal(1);
+            expect(redismock.publish(chan2, msg2)).to.equal(1);
+            expect(redismock.publish(chan3, msg3)).to.equal(1);
+        });
     });
 
     describe('subscribe', function () {
-        xit('should subscribe');
+        xit('should subscribe to a channel', function (done) {
+            var chan = randkey('ch');
+            var msg = "bon jour! je m'apelle Muzzy!";
+            redismock
+                .createClient()
+                .on("message", function (channel, message) {
+                    expect(channel).to.equal(chan);
+                    expect(message).to.equal(msg);
+                    done();
+                })
+                .psubscribe(chan);
+            redismock.publish(chan, msg);
+        });
+        it('should subscribe to channels', function (done) {
+            var chan1 = randkey("yyy"), chan2 = randkey("xxx"), chan3 = randkey("qqq");
+            var msg = "je ne parle pas francais, Muzzy.";
+            var count = 3, cnt = 0;
+            redismock
+                .createClient()
+                .on("message", function (channel, message) {
+                    expect([chan1, chan2, chan3].indexOf(channel)).to.be.above(-1);
+                    expect(message).to.equal(msg);
+                    cnt += 1;
+                    if (count === cnt) {
+                        done();
+                    }
+                })
+                .subscribe(chan1, chan2, chan3);
+            expect(redismock.publish(chan1, msg)).to.equal(1);
+            expect(redismock.publish(chan2, msg)).to.equal(1);
+            expect(redismock.publish(chan3, msg)).to.equal(1);
+        });
     });
 
     describe('unsubscribe', function () {
-        xit('should unsubscribe');
+        it('should do nothing if the channel is not subscribed', function (done) {
+            var client = redismock.createClient();
+            client
+                .on("unsubscribe", function () {
+                    expect(true).to.be.false;
+                });
+            client.unsubscribe("nothing");
+            setTimeout(function () {
+                done();
+            }, 1000);
+        });
+        it('should unsubscribe from a subscribed channel', function (done) {
+            var chan = randkey('boosh');
+            var msg1 = "hello!", msg2 = "goodbye!";
+            redismock
+                .createClient()
+                .on("unsubscribe", function (channel) {
+                    expect(channel).to.equal(chan);
+                    redismock.publish(chan, msg2);
+                    setTimeout(function () {
+                        done();
+                    }, 1000);
+                })
+                .on("message", function (channel, message) {
+                    expect(channel).to.equal(chan);
+                    expect(message).to.equal(msg1);
+                    this.unsubscribe(chan);
+                })
+                .subscribe(chan);
+            expect(redismock.publish(chan, msg1)).to.equal(1);
+        });
+        it('should unsubscribe from subscribed channels', function (done) {
+            var chan1 = randkey('sticky'), chan2 = randkey('icky');
+            var msg1 = "hello again!", msg2 = "goodbye again!";
+            var count = 2, cnt = 0;
+            redismock
+                .createClient()
+                .on("unsubscribe", function (channel) {
+                    var idx = [chan1, chan2].indexOf(channel);
+                    expect(idx).to.be.above(-1);
+                    if (idx === 0) {
+                        redismock.publish(chan1, msg1);
+                        setTimeout(function () {
+                            cnt += 1;
+                            if (count === cnt) {
+                                done();
+                            }
+                        }, 1000);
+                    }
+                    else {
+                        redismock.publish(chan2, msg2);
+                        setTimeout(function () {
+                            cnt += 1;
+                            if (count === cnt) {
+                                done();
+                            }
+                        }, 1000);
+                    }
+                })
+                .on("message", function (channel, message) {
+                    var idx = [chan1, chan2].indexOf(channel);
+                    expect(idx).to.be.above(-1);
+                    if (idx === 0) {
+                        expect(channel).to.equal(chan1);
+                        this.unsubscribe(chan1);
+                    }
+                    else {
+                        expect(channel).to.equal(chan2);
+                        this.unsubscribe(chan2);
+                    }
+                })
+                .subscribe(chan1, chan2);
+            expect(redismock.publish(chan1, msg1)).to.equal(1);
+            expect(redismock.publish(chan2, msg2)).to.equal(1);
+        });
+        it('should unsubscribe from all subscribed channels', function (done) {
+            this.timeout(5000);
+            var chan1 = randkey('mighty'), chan2 = randkey('tighty'), chan3 = randkey('whitey');
+            var msg1 = "hello again again!", msg2 = "goodbye again again!", msg3 = "hey you guys!";
+            var count = 3, cnt = 0;
+            redismock
+                .createClient()
+                .on("unsubscribe", function (channel) {
+                    var idx = [chan1, chan2, chan3].indexOf(channel);
+                    expect(idx).to.be.above(-1);
+                    if (idx === 0) {
+                        redismock.publish(chan1, msg1);
+                        setTimeout(function () {
+                            cnt += 1;
+                            if (count === cnt) {
+                                done();
+                            }
+                        }, 1000);
+                    }
+                    else if (idx === 1) {
+                        redismock.publish(chan2, msg2);
+                        setTimeout(function () {
+                            cnt += 1;
+                            if (count === cnt) {
+                                done();
+                            }
+                        }, 1000);
+                    }
+                    else {
+                        redismock.publish(chan3, msg3);
+                        setTimeout(function () {
+                            cnt += 1;
+                            if (count === cnt) {
+                                done();
+                            }
+                        }, 1000);
+                    }
+                })
+                .on("message", function (channel, message) {
+                    var idx = [chan1, chan2, chan3].indexOf(channel);
+                    expect(idx).to.be.above(-1);
+                    if (idx === 2) {
+                        expect(channel).to.equal(chan3);
+                        this.unsubscribe();
+                    }
+                })
+                .subscribe(chan1, chan2, chan3);
+            expect(redismock.publish(chan1, msg1)).to.equal(1);
+            expect(redismock.publish(chan2, msg2)).to.equal(1);
+            expect(redismock.publish(chan3, msg3)).to.equal(1);
+        });
     });
 
 }).call(this);

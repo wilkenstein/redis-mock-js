@@ -2828,7 +2828,7 @@
         var g = gather(this.punsubscribe).apply(this, arguments);
         var newCount = subscribers.length;
         callback = g.callback;
-        if (!g.list) {
+        if (!g.list.length) {
             subscribers = subscribers
                 .filter(function (subscriber) {
                     if (subscriber.rm !== that) {
@@ -2874,12 +2874,12 @@
         return cb(callback)(null, "OK");
     };
 
-    redismock.unsubscribe = function (channel, callback) {
+    redismock.unsubscribe = function (callback) {
         var that = this;
         var g = gather(this.unsubscribe).apply(this, arguments);
         var newCount = subscribers.length;
         callback = g.callback;
-        if (!g.list) {
+        if (!g.list.length) {
             subscribers = subscribers
                 .filter(function (subscriber) {
                     if (subscriber.rm !== that) {
