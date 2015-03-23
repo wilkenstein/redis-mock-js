@@ -48,7 +48,8 @@
         'time',
         'toPromiseStyle',
         'copy',
-        'toNodeRedis'
+        'toNodeRedis',
+        'createClient'
     ];
 
     describe('args check', function () {

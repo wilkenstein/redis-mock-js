@@ -192,23 +192,17 @@
         };
     };
 
-    var gather = function (f, e) {
-        var end = f.length;
-        if (e) {
-            end = e;
-        }
+    var gather = function (f) {
         return function () {
             var idx, len = arguments.length;
             var callback;
-            var list = [arguments[end - 2]];
-            if (len >= end) {
-                for (idx = end - 1; idx < len; idx += 1) {
-                    if (typeof arguments[idx] === "function") {
-                        callback = arguments[idx];
-                    }
-                    else if (arguments[idx] !== null && arguments[idx] !== undefined) {
-                        list.push(arguments[idx]);
-                    }
+            var list = [];
+            for (idx = len - 1; idx >= 0; idx -= 1) {
+                if (typeof arguments[idx] === "function") {
+                    callback = arguments[idx];
+                }
+                else if (exists(arguments[idx])) {
+                    list.unshift(arguments[idx]);
                 }
             }
             return {
@@ -633,6 +627,7 @@
         callback = g.callback;
         strings = g
             .list
+            .slice(2)
             .map(function (k) {
                 if (that.exists(k) && that.type(k) !== 'string') {
                     return null;
@@ -689,12 +684,12 @@
 
     // Find first bit set or clear in a string.
     redismock.bitpos = function (key, bit, callback) {
-        var g = gather(this.bitpos, 3).apply(this, arguments);
+        var g = gather(this.bitpos).apply(this, arguments);
         var start, end;
         callback = g.callback;
-        if (g.list.length > 1) {
-            start = g.list[1];
-            end = g.list[2];
+        if (g.list.length > 2) {
+            start = g.list[2];
+            end = g.list[3];
         }
         if (typeof start === 'undefined') {
             start = 0;
@@ -871,7 +866,7 @@
     redismock.mset = function (key, value, callback) {
         var kvs = [];
         var that = this;
-        var g = gather(this.mset, 2).apply(this, arguments);
+        var g = gather(this.mset).apply(this, arguments);
         callback = g.callback;
         g.list.forEach(function (opt, index) {
             if (index % 2 === 0) {
@@ -888,7 +883,7 @@
     redismock.msetnx = function (key, value, callback) {
         var kvs = [];
         var that = this;
-        var g = gather(this.msetnx, 2).apply(this, arguments);
+        var g = gather(this.msetnx).apply(this, arguments);
         callback = g.callback;
         g.list.forEach(function (opt, index) {
             if (index % 2 === 0) {
@@ -918,20 +913,22 @@
         var nx = false, xx = false, ex = -1, px = -1;
         var g = gather(this.set).apply(this, arguments);
         callback = g.callback;
-        g.list.forEach(function (opt, index) {
-            if (opt === 'nx') {
-                nx = true;
-            }
-            else if (opt === 'xx') {
-                xx = true;
-            }
-            else if (opt === 'ex') {
-                ex = g.list[index + 1];
-            }
-            else if (opt === 'px') {
-                px = g.list[index + 1];
-            }
-        });
+        g
+            .list
+            .forEach(function (opt, index) {
+                if (opt === 'nx') {
+                    nx = true;
+                }
+                else if (opt === 'xx') {
+                    xx = true;
+                }
+                else if (opt === 'ex') {
+                    ex = g.list[index + 1];
+                }
+                else if (opt === 'px') {
+                    px = g.list[index + 1];
+                }
+            });
         if (nx) {
             if (this.exists(key)) {
                 return cb(callback)(null, null);
@@ -1123,7 +1120,7 @@
             .ifType(key, 'list', callback)
             .thennx(function () { cache[key] = new redismock.Array(); })
             .then(function () {
-                g.list.forEach(function (elem) {
+                g.list.slice(1).forEach(function (elem) {
                     cache[key].unshift(elem);
                 });
                 return cache[key].length;
@@ -1277,7 +1274,7 @@
             .ifType(key, 'list', callback)
             .thennx(function () { cache[key] = new redismock.Array(); })
             .then(function () {
-                cache[key] = cache[key].concat(g.list);
+                cache[key] = cache[key].concat(g.list.slice(1));
                 return cache[key].length;
             })
             .end();
@@ -1305,7 +1302,7 @@
             .ifType(key, 'set', callback)
             .thennx(function () { cache[sets][key] = {}; })
             .then(function () {
-                g.list.forEach(function (m) {
+                g.list.slice(1).forEach(function (m) {
                     m = m ? m.toString() : '';
                     if (m.length === 0) {
                         return;
@@ -1357,7 +1354,7 @@
     
     redismock.sdiffstore = function (destination, key, callback) {
         var g = gather(this.sdiffstore).apply(this, arguments);
-        var diff = this.sdiff.apply(this, g.list);
+        var diff = this.sdiff.apply(this, g.list.slice(1));
         callback = g.callback;
         if (diff instanceof Error) {
             return cb(callback)(diff);
@@ -1399,7 +1396,7 @@
     redismock.sinterstore = function (destination, key, callback) {
         var that = this;
         var g = gather(this.sinterstore).apply(this, arguments);
-        var inter = this.sinter.apply(this, g.list);
+        var inter = this.sinter.apply(this, g.list.slice(1));
         callback = g.callback;
         if (inter instanceof Error) {
             return cb(callback)(inter);
@@ -1493,7 +1490,7 @@
         return this
             .ifType(key, 'set', callback)
             .thenex(function () {
-                g.list.forEach(function (m) {
+                g.list.slice(1).forEach(function (m) {
                     var k = m ? m.toString() : '';
                     if (k in cache[sets][key]) {
                         delete cache[sets][key][k];
@@ -1544,7 +1541,7 @@
     redismock.sunionstore = function (destination, key, callback) {
         var that = this;
         var g = gather(this.sunionstore).apply(this, arguments);
-        var union = this.sunion.apply(this, g.list);
+        var union = this.sunion.apply(this, g.list.slice(1));
         callback = g.callback;
         if (union instanceof Error) {
             return cb(callback)(union);
@@ -1598,8 +1595,9 @@
     // -------------------
 
     redismock.zadd = function (key, score, member, callback) {
-        var g = gather(this.zadd, 3).apply(this, arguments);
+        var g = gather(this.zadd).apply(this, arguments);
         callback = g.callback;
+        g.list = g.list.slice(1);
         return this
             .ifType(key, 'zset', callback)
             .thennx(function () { cache[zsets][key] = redismock.SortedSet(); })
@@ -1679,7 +1677,7 @@
         var aggregate = 'sum';
         var count;
         callback = g.callback;
-        if (!g.list.slice(0, numkeys).every(function (k) {
+        if (!g.list.slice(2).every(function (k) {
             return that.type(k) === 'zset' || that.type(k) === 'none';
         })) {
             return wrongType(callback);
@@ -1693,7 +1691,7 @@
                     index += 1;
                 }
                 weights = weightsArray.reduce(function (hash, weight, i) {
-                    hash[g.list[i]] = weight;
+                    hash[g.list[i + 2]] = weight;
                     return hash;
                 }, {});
             }
@@ -1705,9 +1703,10 @@
             this.del(destination);
         }
         count = 0;
+        g.list = g.list.slice(2, 2 + numkeys);
         g
             .list
-            .slice(1, numkeys)
+            .slice(1)
             .reduce(function (inter, k) {
                 var arr = [];
                 var idx, len = inter.length;
@@ -2179,7 +2178,7 @@
     };
 
     redismock.zrevrangebyscore = function (key, max, min, callback) {
-        var g = gather(this.zrevrangebyscore, 2).apply(this, arguments);
+        var g = gather(this.zrevrangebyscore).apply(this, arguments);
         var r, tmpM;
         callback = g.callback;
         tmpM = g.list[1];
@@ -2244,7 +2243,7 @@
         var aggregate = 'sum';
         var count;
         callback = g.callback;
-        if (!g.list.slice(0, numkeys).every(function (k) {
+        if (!g.list.slice(2, 2 + numkeys).every(function (k) {
             return that.type(k) === 'zset' || that.type(k) === 'none';
         })) {
             return wrongType(callback);
@@ -2258,7 +2257,7 @@
                     index += 1;
                 }
                 weights = weightsArray.reduce(function (hash, weight, i) {
-                    hash[g.list[i]] = weight;
+                    hash[g.list[i + 2]] = weight;
                     return hash;
                 }, {});
             }
@@ -2270,9 +2269,10 @@
             this.del(destination);
         }
         count = 0;
+        g.list = g.list.slice(2, 2 + numkeys);
         g
             .list
-            .slice(1, numkeys)
+            .slice(1)
             .reduce(function (union, k) {
                 var arr = [];
                 var idx, len = union.length;
@@ -2521,6 +2521,7 @@
         return this
             .ifType(key, 'hash', callback)
             .thenex(function () {
+                g.list = g.list.slice(1);
                 var arr = g
                     .list
                     .map(function (f) {
@@ -2533,13 +2534,14 @@
     };
 
     redismock.hmset = function (key, field, value, callback) {
-        var g = gather(this.hmset, 3).apply(this, arguments);
+        var g = gather(this.hmset).apply(this, arguments);
         callback = g.callback;
         return this
             .ifType(key, 'hash', callback)
             .thennx(function () { cache[hashes][key] = {}; })
             .then(function () {
                 var that = this;
+                g.list = g.list.slice(1);
                 g
                     .list
                     .map(function (fv, index) {
@@ -2698,9 +2700,7 @@
         if (exists(rm.listeners[event])) {
             rm.listeners[event]
                 .forEach(function (cb) {
-                    setImmediate(function () {
-                        cb.apply(rm, g.list.slice(2));
-                    });
+                    cb.apply(rm, g.list.slice(2));
                 });
         }
     }
@@ -2733,12 +2733,14 @@
         if (this.matches(channel)) {
             if (exists(this.channel)) {
                 emit(this.rm, "message", channel, message);
+                return true;
             }
             else if (exists(this.pattern)) {
                 emit(this.rm, "pmessage", this.originalPattern, channel, message);
+                return true;
             }
         }
-        return this;
+        return false;
     };
 
     redismock.psubscribe = function (pattern, callback) {
@@ -2800,11 +2802,14 @@
     };
 
     redismock.publish = function (channel, message, callback) {
-        subscribers
-            .forEach(function (subscriber) {
-                subscriber.message(channel, message);
-            });
-        return cb(callback)(null, 'OK');
+        var count = subscribers
+            .reduce(function (cnt, subscriber) {
+                if (subscriber.message(channel, message)) {
+                    return cnt + 1;
+                }
+                return cnt;
+            }, 0);
+        return cb(callback)(null, count);
     };
 
     redismock.punsubscribe = function (callback) {
@@ -3168,7 +3173,7 @@
     // Modifications
     // -------------
 
-    var modifiers = ['del', 'set', 'lpush', 'rpush', 'lpop', 'rpop', 'ltrim', 'lset', 'sadd', 'sdiffstore', 'sinterstore', 'srem', 'sunionstore', 'zadd', 'zrem']; // TODO: Add the rest.
+    var modifiers = ['del', 'set', 'lpush', 'rpush', 'lpop', 'rpop', 'ltrim', 'lset', 'sadd', 'sdiffstore', 'sinterstore', 'srem', 'sunionstore', 'zadd', 'zrem', 'zunionstore', 'zinterstore']; // TODO: Add the rest.
     var capture = {};
     var fkeys = [];
     for (var key in redismock) {
@@ -3184,7 +3189,7 @@
             if (arguments.length < capture[key].length - 1) {
                 return cb(arguments[arguments.length - 1])(new Error('ERR wrong number of arguments for \'' + key + '\' command'));
             }
-            return capture[key].apply(capture, arguments);
+            return capture[key].apply(this, arguments);
         };
     });
     // For each function that modifies the database, splice in the watchers to get
@@ -3196,7 +3201,7 @@
             if (key in watchers) {
                 watchers[key] = true;
             }
-            return mod.apply(capture, arguments);
+            return mod.apply(this, arguments);
         };
     });
     function toPromise(f, context, deferFactory) {
@@ -3257,6 +3262,7 @@
             };
         });
         copied.toPromiseStyle = redismock.toPromiseStyle;
+        copied.listeners = {};
         return copied;
     };
 

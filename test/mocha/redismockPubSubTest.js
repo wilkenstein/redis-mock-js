@@ -14,7 +14,40 @@
     }
 
     describe('psubscribe', function () {
-        xit('should psubscribe');
+        it('should psubscribe to a pattern', function (done) {
+            var chan = randkey('borg');
+            var msg = "hola! Yo soy Muzzy!";
+            redismock
+                .createClient()
+                .on("pmessage", function (pattern, channel, message) {
+                    expect(pattern).to.equal("b?[or]g*");
+                    expect(channel).to.equal(chan);
+                    expect(message).to.equal(msg);
+                    done();
+                })
+                .psubscribe("b?[or]g*");
+            redismock.publish(chan, msg);
+        });
+        it('should psubscribe to patterns', function (done) {
+            var chan1 = randkey("bass"), chan2 = randkey("crass"), chan3 = randkey("zzz");
+            var msg = "No entiendo Espanol, Muzzy.";
+            var count = 3, cnt = 0;
+            redismock
+                .createClient()
+                .on("pmessage", function (pattern, channel, message) {
+                    expect([chan1, chan2, chan3].indexOf(channel)).to.be.above(-1);
+                    expect(["[bc]ass*", "[bc]?as*", "zzz*"].indexOf(pattern)).to.be.above(-1);
+                    expect(message).to.equal(msg);
+                    cnt += 1;
+                    if (count === cnt) {
+                        done();
+                    }
+                })
+                .psubscribe("[bc]ass*", "[bc]?as*", "zzz*");
+            expect(redismock.publish(chan1, msg)).to.equal(1);
+            expect(redismock.publish(chan2, msg)).to.equal(1);
+            expect(redismock.publish(chan3, msg)).to.equal(1);
+        });
     });
 
     describe('pubsub', function () {
@@ -28,14 +61,12 @@
             redismock
                 .createClient()
                 .on("message", function (channel, message) {
-                    if (channel === chan) {
-                        expect(channel).to.equal(chan);
-                        expect(message).to.equal(msg);
-                        done();
-                    }
+                    expect(channel).to.equal(chan);
+                    expect(message).to.equal(msg);
+                    done();
                 })
                 .subscribe(chan)
-            redismock.publish(chan, msg);
+            expect(redismock.publish(chan, msg)).to.equal(1);
         });
         it('should publish a message to subscribers of a channel', function (done) {
             var chan = randkey('c');
@@ -44,43 +75,37 @@
             redismock
                 .createClient()
                 .on("message", function (channel, message) {
-                    if (channel === chan) {
-                        expect(channel).to.equal(chan);
-                        expect(message).to.equal(msg);
-                        cnt += 1;
-                        if (cnt === count) {
-                            done();
-                        }
+                    expect(channel).to.equal(chan);
+                    expect(message).to.equal(msg);
+                    cnt += 1;
+                    if (cnt === count) {
+                        done();
                     }
                 })
                 .subscribe(chan)
             redismock
                 .createClient()
                 .on("message", function (channel, message) {
-                    if (channel === chan) {
-                        expect(channel).to.equal(chan);
-                        expect(message).to.equal(msg);
-                        cnt += 1;
-                        if (cnt === count) {
-                            done();
-                        }
-                    }  
+                    expect(channel).to.equal(chan);
+                    expect(message).to.equal(msg);
+                    cnt += 1;
+                    if (cnt === count) {
+                        done();
+                    }
                 })
                 .subscribe(chan)
             redismock
                 .createClient()
                 .on("message", function (channel, message) {
-                    if (channel === chan) {
-                        expect(channel).to.equal(chan);
-                        expect(message).to.equal(msg);
-                        cnt += 1;
-                        if (cnt === count) {
-                            done();
-                        }
+                    expect(channel).to.equal(chan);
+                    expect(message).to.equal(msg);
+                    cnt += 1;
+                    if (cnt === count) {
+                        done();
                     }
                 })
                 .subscribe(chan)
-            redismock.publish(chan, msg);
+            expect(redismock.publish(chan, msg)).to.equal(count);
         });
         it('should publish a message to psubscribers', function (done) {
             var chan = randkey('glob');
@@ -89,48 +114,41 @@
             redismock
                 .createClient()
                 .on("pmessage", function (pattern, channel, message) {
-                    if (channel === chan && pattern === "g*") {
-                        expect(pattern).to.equal("g*");
-                        expect(channel).to.equal(chan);
-                        expect(message).to.equal(msg);
-                        cnt += 1;
-                        if (cnt === count) {
-                            done();
-                        }
+                    expect(pattern).to.equal("g*");
+                    expect(channel).to.equal(chan);
+                    expect(message).to.equal(msg);
+                    cnt += 1;
+                    if (cnt === count) {
+                        done();
                     }
                 })
                 .psubscribe("g*");
             redismock
                 .createClient()
                 .on("pmessage", function (pattern, channel, message) {
-                    if (channel === chan && pattern === "g?ob*") {
-                        expect(pattern).to.equal("g?ob*");
-                        expect(channel).to.equal(chan);
-                        expect(message).to.equal(msg);
-                        cnt += 1;
-                        if (cnt === count) {
-                            done();
-                        }
+                    expect(pattern).to.equal("g?ob*");
+                    expect(channel).to.equal(chan);
+                    expect(message).to.equal(msg);
+                    cnt += 1;
+                    if (cnt === count) {
+                        done();
                     }
                 })
                 .psubscribe("g?ob*");
             redismock
                 .createClient()
                 .on("pmessage", function (pattern, channel, message) {
-                    if (channel === chan && pattern === "g[lr]ob*") {
-                        expect(pattern).to.equal("g[lr]ob*");
-                        expect(channel).to.equal(chan);
-                        expect(message).to.equal(msg);
-                        cnt += 1;
-                        if (cnt === count) {
-                            done();
-                        }
+                    expect(pattern).to.equal("g[lr]ob*");
+                    expect(channel).to.equal(chan);
+                    expect(message).to.equal(msg);
+                    cnt += 1;
+                    if (cnt === count) {
+                        done();
                     }
                 })
                 .psubscribe("g[lr]ob*");
-            redismock.publish(chan, msg);
+            expect(redismock.publish(chan, msg)).to.equal(count);
         });
-        xit('should publish');
     });
 
     describe('punsubscribe', function () {
