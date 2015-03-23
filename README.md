@@ -137,7 +137,7 @@ The redis-mock object is exported onto the global `window` object as
 
 ### createClient
 
-`redismock` supports the createClient function. Currently, it ignores any arguments given to it,
+`redismock` supports the `createClient` function. Currently, it ignores any arguments given to it,
 and returns a copy hooked up to the same database as the instatiating `redismock` object.
 Example usage in node.js/io.js:
 
@@ -157,7 +157,7 @@ does not care if we put a client into subscriber mode. That may change in the fu
 it shouldn't affect testing, since we shouldn't be issuing other commands in subscriber mode
 anyways!
 
-When in subscriber mode, `message`, `pmessage, `subscribe`, `psubscribe`, `unsubscribe`, and `punsubscribe`
+When in subscriber mode, `message`, `pmessage`, `subscribe`, `psubscribe`, `unsubscribe`, and `punsubscribe`
 events are issued on the `redismock` instance (or client instance). Example usage:
 
 ````javascript
