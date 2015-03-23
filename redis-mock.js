@@ -2875,6 +2875,7 @@
     };
 
     redismock.unsubscribe = function (channel, callback) {
+        var that = this;
         var g = gather(this.unsubscribe).apply(this, arguments);
         var newCount = subscribers.length;
         callback = g.callback;
