@@ -1428,13 +1428,21 @@
 
     redismock.smove = function (source, dest, member, callback) {
         var r, e;
+        if (this.exists(source) && this.type(source) !== "set") {
+            return wrongType(callback);
+        }
+        if (this.exists(dest) && this.type(dest) !== "set") {
+            return wrongType(callback);
+        }
         r = redismock.srem(source, member);
         if (r instanceof Error) {
             return cb(callback)(r);
         }
-        e = redismock.sadd(dest, member);
-        if (e instanceof Error) {
-            return cb(callback)(e);
+        if (r === 1) {
+            e = redismock.sadd(dest, member);
+            if (e instanceof Error) {
+                return cb(callback)(e);
+            }
         }
         return cb(callback)(null, r);
     };

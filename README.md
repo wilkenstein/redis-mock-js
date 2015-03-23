@@ -382,6 +382,8 @@ JavaScript engines, a somewhat specific style is required:
   - HyperLogLog support.
 
 ## Versions
+* 0.0.11-3
+  - Bug fix for smove command.
 * 0.0.11-2
   - Implement pub/sub in earnest.
   - Unit test pub/sub.

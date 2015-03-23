@@ -398,7 +398,7 @@
                 done();
             });
         });
-        it('to return an error for a destination key that is not a set', function (done) {
+        it('should return an error for a destination key that is not a set', function (done) {
             var k1 = randkey(), k2 = randkey();
             var v = 'v';
             redismock.sadd(k1, v);
@@ -412,17 +412,29 @@
                 done();
             });
         });
-        it('to do nothing if the element is not in the source set', function (done) {
+        it('should do nothing if the element is not in the source set', function (done) {
             var k1 = randkey(), k2 = randkey();
-            var v = 'v';
-            expect(redismock.smove(k1, k2, v)).to.equal(0);
-            redismock.smove(k1, k2, v, function (err, reply) {
+            var v1 = 'v1', v2 = 'v2';
+            redismock.sadd(k1, v1);
+            redismock.sadd(k2, v2);
+            expect(redismock.smove(k1, k2, v2)).to.equal(0);
+            expect(redismock.scard(k1)).to.equal(1);
+            expect(redismock.sismember(k1, v1)).to.equal(1);
+            expect(redismock.scard(k2)).to.equal(1);
+            expect(redismock.sismember(k2, v2)).to.equal(1);
+            expect(redismock.sismember(k2, v1)).to.equal(0);
+            redismock.smove(k2, k1, v1, function (err, reply) {
                 expect(err).to.not.exist;
                 expect(reply).to.equal(0);
+                expect(redismock.scard(k1)).to.equal(1);
+                expect(redismock.sismember(k1, v1)).to.equal(1);
+                expect(redismock.scard(k2)).to.equal(1);
+                expect(redismock.sismember(k2, v2)).to.equal(1);
+                expect(redismock.sismember(k2, v1)).to.equal(0);
                 done();
             });
         });
-        it('to move the element from the source to the destination', function (done) {
+        it('should move the element from the source to the destination', function (done) {
             var k1 = randkey(), k2 = randkey();
             var v = 'v', v1 = 'v1';
             redismock.sadd(k1, v);
