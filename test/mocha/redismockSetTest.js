@@ -512,7 +512,7 @@
                 done();
             });
         });
-        it('to return nothing for a key that does not exist', function (done) {
+        it('should return nothing for a key that does not exist', function (done) {
             var k = randkey();
             var v = 'v';
             expect(redismock.srandmember(k)).to.not.exist;
@@ -522,7 +522,7 @@
                 done();
             });
         });
-        it('to return a random member from the set', function (done) {
+        it('should return a random member from the set', function (done) {
             var k = randkey();
             var v1 = 'v1', v2 = 'v2', v3 = 'v3';
             var arr = [v1, v2, v3];
@@ -534,7 +534,7 @@
                 done();
             });
         });
-        it('to return count random members from the set', function (done) {
+        it('should return count random members from the set', function (done) {
             var k = randkey();
             var v1 = 'v1', v2 = 'v2', v3 = 'v3';
             var arr = [v1, v2, v3];
@@ -550,6 +550,10 @@
                 reply.forEach(function (r) {
                     expect(arr.indexOf(r)).to.be.above(-1);
                 });
+                ms = redismock.srandmember(k, 4);
+                expect(ms).to.have.lengthOf(3);
+                ms = redismock.srandmember(k, -4);
+                expect(ms).to.have.lengthOf(4);
                 done();
             });
         });

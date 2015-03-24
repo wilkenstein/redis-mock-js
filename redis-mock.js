@@ -1554,6 +1554,7 @@
     };
 
     redismock.srandmember = function (key, callback) {
+        var that = this;
         var count;
         if (arguments.length === 2 && typeof callback !== "function") {
             count = callback;
@@ -1567,14 +1568,26 @@
             .ifType(key, 'set', callback)
             .thenex(function () {
                 var k = Object.keys(cache[sets][key]);
-                var idx, randos;
+                var randos, rando;
+                var len = that.scard(key);
                 if (count === 0) {
                     return null;
                 }
                 if (count) {
                     randos = [];
-                    for (idx = 0; idx < Math.abs(count); idx += 1) {
-                        randos.push(k[Math.floor(Math.random() * k.length)]);
+                    while (randos.length < Math.abs(count)) {
+                        rando = k[Math.floor(Math.random() * k.length)];
+                        if (count < 0) {
+                            randos.push(rando);
+                        }
+                        else {
+                            if (randos.indexOf(rando) === -1) {
+                                randos.push(rando);
+                                if (randos.length === len) {
+                                    break;
+                                }
+                            }
+                        }
                     }
                     return randos;
                 }
