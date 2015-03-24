@@ -271,8 +271,6 @@ setGetAsPromise() // On console, 'value' should be logged.
 
 The goal is to have one-to-one feature parity with all redis commands, so that this implementation can simply be dropped into an existing redis-backed codebase. Redis has a lot of commands! Some of them are easy, and some are quite complex.
 
-Version 0.1.0 should have support for almost all redis commands, minus the hyperloglog commands and the key-movement commands, such as migrate.
-
 To find out what commands a particular version of redis-js supports, run the following commands:
 
 ````bash
@@ -365,16 +363,13 @@ JavaScript engines, a somewhat specific style is required:
 
 ## Roadmap
 
-* 0.1.0
-  - Support for most redis commands.
-  - Mocha tests for all supported commands.
-  - Browser testing and compatibility determination.
 * 1.0.0
   - Support for different versions of mock redis that mimic different
     redis versions.
   - Support for multiple redis databases in redis mock.
 * 1.1.0
   - Server support.
+    - Browser testing and compatibility determination.
 * 1.2.0
   - Support for migrating data between mock redis instances.
 * 2.0.0
@@ -383,10 +378,140 @@ JavaScript engines, a somewhat specific style is required:
   - HyperLogLog support.
 * 2.1.0
   - Support for persisting a mock redis instance.
-* 2.2.0
+* 3.0.0
   - Lua scripting support.
 
 ## Versions
+
+* 0.1.0
+  - Full support for all redis data structures: strings, lists, sets,
+    sorted sets, and hashes.
+  - Transaction support.
+  - Pub/Sub support.
+  - Core keys support.
+  - Unit tests for all implemented commands.
+  - Implemented commands:
+    - exists
+    - expire
+    - expireat
+    - keys
+    - persist
+    - pexpire
+    - pexpireat
+    - pttl
+    - randomkey
+    - rename
+    - renamenx
+    - ttl
+    - type
+    - append
+    - bitcount
+    - bitop
+    - bitpos
+    - decr
+    - decrby
+    - get
+    - getbit
+    - getrange
+    - getset
+    - incr
+    - incrby
+    - incrbyfloat
+    - mget
+    - mset
+    - msetnx
+    - psetex
+    - set
+    - setbit
+    - setex
+    - setnx
+    - setrange
+    - strlen
+    - blpop
+    - brpop
+    - brpoplpush
+    - lindex
+    - linsert
+    - llen
+    - lpop
+    - lpush
+    - lpushx
+    - lrange
+    - lrem
+    - lset
+    - ltrim
+    - rpop
+    - rpoplpush
+    - rpush
+    - rpushx
+    - sadd
+    - scard
+    - sdiff
+    - sdiffstore
+    - sinter
+    - sinterstore
+    - sismember
+    - smembers
+    - smove
+    - spop
+    - srandmember
+    - srem
+    - sunion
+    - sunionstore
+    - sscan
+    - zadd
+    - zcard
+    - zcount
+    - zincrby
+    - zinterstore
+    - zlexcount
+    - zrange
+    - zrangebylex
+    - zrevrangebylex
+    - zrangebyscore
+    - zrank
+    - zrem
+    - zremrangebylex
+    - zremrangebyrank
+    - zremrangebyscore
+    - zrevrange
+    - zrevrangebyscore
+    - zrevrank
+    - zscore
+    - zunionstore
+    - zscan
+    - hdel
+    - hexists
+    - hget
+    - hgetall
+    - hincrby
+    - hincrbyfloat
+    - hkeys
+    - hlen
+    - hmget
+    - hmset
+    - hset
+    - hsetnx
+    - hstrlen
+    - hvals
+    - hscan
+    - psubscribe
+    - pubsub
+    - publish
+    - punsubscribe
+    -subscribe
+    - unsubscribe
+    - discard
+    - multi
+    - unwatch
+    - watch
+    - createClient
+    - dbsize
+    - flushdb
+    - time
+
+## Deprecated Versions
+
 * 0.0.11-4
   - Implement blpop/brpop/brpoplpush list commands.
   - Unit tests for all list commands.
@@ -440,21 +565,17 @@ JavaScript engines, a somewhat specific style is required:
   - Added way to see implemented vs unimplemented commands.
   - More unit tests and more implementations.
 * 0.0.4
-  - DEPRECATED
   - Enhanced hash support.
   - Unit tests for hash commands.
 * 0.0.3
-  - DEPRECATED
   - Set, sorted set, and hash support.
   - Unit tests for implemented list, set, and sorted set commands.
   - Bug squashes.
 * 0.0.2
-  - DEPRECATED
   - Transaction support that works.
   - Bug squashes.
   - Enhanced commands.
 * 0.0.1
-  - DEPRECATED
   - Initial implementation.
   - Numerous bugs.
   - Incomplete commands.

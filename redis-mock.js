@@ -3017,7 +3017,7 @@
     // ---------------------
 
     redismock.discard = function (callback) {
-        return cb(callback)(new Error('UNIMPLEMENTED'));
+        return cb(callback)(new Error('ERR DISCARD without MULTI'));
     };
 
     redismock.multi = function () {
@@ -3055,11 +3055,17 @@
             });
             return cb(callback)(null, replies);
         };
+        rc.discard = function (callback) {
+            toApply = [];
+            watchers = {};
+            return cb(callback)(null, 'OK');
+        };
         return rc;
     };
 
     redismock.unwatch = function (callback) {
-        return cb(callback)(new Error('UNIMPLEMENTED'));
+        watchers = {};
+        return cb(callback)(null, 'OK');
     };
 
     redismock.watch = function (key, callback) {
