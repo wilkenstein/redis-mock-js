@@ -387,6 +387,9 @@ JavaScript engines, a somewhat specific style is required:
   - Lua scripting support.
 
 ## Versions
+
+* 0.0.11-5
+  - Bug fix in srandmember to work correctly with the count option.
 * 0.0.11-4
   - Implement blpop/brpop/brpoplpush list commands.
   - Unit tests for all list commands.
