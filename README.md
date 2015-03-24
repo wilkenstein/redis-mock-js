@@ -372,16 +372,24 @@ JavaScript engines, a somewhat specific style is required:
 * 1.0.0
   - Support for different versions of mock redis that mimic different
     redis versions.
-  - Support for multiple mock redis instances.
-  - Support for migrating data between mock redis instances.
+  - Support for multiple redis databases in redis mock.
+* 1.1.0
   - Server support.
+* 1.2.0
+  - Support for migrating data between mock redis instances.
 * 2.0.0
   - Support for migrating data from a mock redis instance to a real
     redis instance.
-  - Support for persisting a mock redis instance.
   - HyperLogLog support.
+* 2.1.0
+  - Support for persisting a mock redis instance.
+* 2.2.0
+  - Lua scripting support.
 
 ## Versions
+* 0.0.11-4
+  - Implement blpop/brpop/brpoplpush list commands.
+  - Unit tests for all list commands.
 * 0.0.11-3
   - Bug fix for smove command.
 * 0.0.11-2

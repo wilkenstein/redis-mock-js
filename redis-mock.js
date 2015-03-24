@@ -1044,15 +1044,102 @@
     // -------------
 
     redismock.blpop = function (key, timeout, callback) {
-        return cb(callback)(new Error('UNIMPLEMENTED'));
+        var that = this;
+        var g = gather(this.blpop).apply(null, arguments);
+        var keys = g.list.slice(0, g.list.length - 1);
+        timeout = g.list[g.list.length - 1];
+        callback = g.callback;
+        var f, timedout = false;
+        f = function () {
+            if (timedout) {
+                return cb(callback)(null, null);
+            }
+            if (keys.some(function (k) {
+                var len = that.llen(k);
+                if (len instanceof Error) {
+                    cb(callback)(len);
+                    return true;
+                }
+                if (len > 0) {
+                    that.lpop(k, callback);
+                    return true;
+                }
+                return false;
+            })) {
+                return;
+            }
+            setImmediate(f);
+        };
+        if (timeout > 0) {
+            setTimeout(function () {
+                timedout = true;
+            }, timeout*1000);
+        }
+        setImmediate(f);
+        return this;
     };
 
     redismock.brpop = function (key, timeout, callback) {
-        return cb(callback)(new Error('UNIMPLEMENTED'));
+       var that = this;
+        var g = gather(this.blpop).apply(null, arguments);
+        var keys = g.list.slice(0, g.list.length - 1);
+        var f, timedout = false;
+        timeout = g.list[g.list.length - 1];
+        callback = g.callback;
+        f = function () {
+            if (timedout) {
+                return cb(callback)(null, null);
+            }
+            if (keys.some(function (k) {
+                var len = that.llen(k);
+                if (len instanceof Error) {
+                    cb(callback)(len);
+                    return true;
+                }
+                if (len > 0) {
+                    that.rpop(k, callback);
+                    return true;
+                }
+                return false;
+            })) {
+                return;
+            }
+            setImmediate(f);
+        };
+        if (timeout > 0) {
+            setTimeout(function () {
+                timedout = true;
+            }, timeout*1000);
+        }
+        setImmediate(f);
+        return this;
     };
 
     redismock.brpoplpush = function (source, destination, timeout, callback) {
-        return cb(callback)(new Error('UNIMPLEMENTED'));
+        var that = this;
+        var f, timedout = false;
+        f = function () {
+            var len;
+            if (timedout) {
+                return cb(callback)(null, null);
+            }
+            len = that.llen(source);
+            if (len instanceof Error) {
+                return cb(callback)(len);
+            }
+            if (len > 0) {
+                that.rpoplpush(source, destination, callback);
+                return;
+            }
+            setImmediate(f);
+        };
+        if (timeout > 0) {
+            setTimeout(function () {
+                timedout = true;
+            }, timeout*1000);
+        }
+        setImmediate(f);
+        return this;
     };
 
     redismock.lindex = function (key, i, callback) {
@@ -1253,7 +1340,13 @@
     };
 
     redismock.rpoplpush = function (source, dest, callback) {
-        var element, reply;
+        var element = null, reply;
+        if (this.exists(source) && this.type(source) !== 'list') {
+            return wrongType(callback);
+        }
+        if (this.exists(dest) && this.type(dest) !== 'list') {
+            return wrongType(callback);
+        }
         element = this.rpop(source);
         if (element instanceof Error) {
             return cb(callback)(element);

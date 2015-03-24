@@ -45,11 +45,11 @@
   <div class="row">
     <div class="col-md-6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">70.44</p>
+      <p class="stat">70.24</p>
     </div>
     <div class="col-md-6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">3347</p>
+      <p class="stat">3448</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="col-md-6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">308.24</p>
+      <p class="stat">316.35</p>
     </div>
     <div class="col-md-6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">44.09</p>
+      <p class="stat">45.33</p>
     </div>
   </div>
 </div>
@@ -1136,15 +1136,102 @@
     // -------------
 
     redismock.blpop = function (key, timeout, callback) {
-        return cb(callback)(new Error(&#039;UNIMPLEMENTED&#039;));
+        var that = this;
+        var g = gather(this.blpop).apply(null, arguments);
+        var keys = g.list.slice(0, g.list.length - 1);
+        timeout = g.list[g.list.length - 1];
+        callback = g.callback;
+        var f, timedout = false;
+        f = function () {
+            if (timedout) {
+                return cb(callback)(null, null);
+            }
+            if (keys.some(function (k) {
+                var len = that.llen(k);
+                if (len instanceof Error) {
+                    cb(callback)(len);
+                    return true;
+                }
+                if (len &gt; 0) {
+                    that.lpop(k, callback);
+                    return true;
+                }
+                return false;
+            })) {
+                return;
+            }
+            setImmediate(f);
+        };
+        if (timeout &gt; 0) {
+            setTimeout(function () {
+                timedout = true;
+            }, timeout*1000);
+        }
+        setImmediate(f);
+        return this;
     };
 
     redismock.brpop = function (key, timeout, callback) {
-        return cb(callback)(new Error(&#039;UNIMPLEMENTED&#039;));
+       var that = this;
+        var g = gather(this.blpop).apply(null, arguments);
+        var keys = g.list.slice(0, g.list.length - 1);
+        var f, timedout = false;
+        timeout = g.list[g.list.length - 1];
+        callback = g.callback;
+        f = function () {
+            if (timedout) {
+                return cb(callback)(null, null);
+            }
+            if (keys.some(function (k) {
+                var len = that.llen(k);
+                if (len instanceof Error) {
+                    cb(callback)(len);
+                    return true;
+                }
+                if (len &gt; 0) {
+                    that.rpop(k, callback);
+                    return true;
+                }
+                return false;
+            })) {
+                return;
+            }
+            setImmediate(f);
+        };
+        if (timeout &gt; 0) {
+            setTimeout(function () {
+                timedout = true;
+            }, timeout*1000);
+        }
+        setImmediate(f);
+        return this;
     };
 
     redismock.brpoplpush = function (source, destination, timeout, callback) {
-        return cb(callback)(new Error(&#039;UNIMPLEMENTED&#039;));
+        var that = this;
+        var f, timedout = false;
+        f = function () {
+            var len;
+            if (timedout) {
+                return cb(callback)(null, null);
+            }
+            len = that.llen(source);
+            if (len instanceof Error) {
+                return cb(callback)(len);
+            }
+            if (len &gt; 0) {
+                that.rpoplpush(source, destination, callback);
+                return;
+            }
+            setImmediate(f);
+        };
+        if (timeout &gt; 0) {
+            setTimeout(function () {
+                timedout = true;
+            }, timeout*1000);
+        }
+        setImmediate(f);
+        return this;
     };
 
     redismock.lindex = function (key, i, callback) {
@@ -1345,7 +1432,13 @@
     };
 
     redismock.rpoplpush = function (source, dest, callback) {
-        var element, reply;
+        var element = null, reply;
+        if (this.exists(source) &amp;&amp; this.type(source) !== &#039;list&#039;) {
+            return wrongType(callback);
+        }
+        if (this.exists(dest) &amp;&amp; this.type(dest) !== &#039;list&#039;) {
+            return wrongType(callback);
+        }
         element = this.rpop(source);
         if (element instanceof Error) {
             return cb(callback)(element);
@@ -1520,13 +1613,21 @@
 
     redismock.smove = function (source, dest, member, callback) {
         var r, e;
+        if (this.exists(source) &amp;&amp; this.type(source) !== &quot;set&quot;) {
+            return wrongType(callback);
+        }
+        if (this.exists(dest) &amp;&amp; this.type(dest) !== &quot;set&quot;) {
+            return wrongType(callback);
+        }
         r = redismock.srem(source, member);
         if (r instanceof Error) {
             return cb(callback)(r);
         }
-        e = redismock.sadd(dest, member);
-        if (e instanceof Error) {
-            return cb(callback)(e);
+        if (r === 1) {
+            e = redismock.sadd(dest, member);
+            if (e instanceof Error) {
+                return cb(callback)(e);
+            }
         }
         return cb(callback)(null, r);
     };

@@ -14,15 +14,158 @@
     }
 
     describe('blpop', function () {
-        xit('should blpop');
+        it('should return an error for a key that is not a list', function (done) {
+            var k = randkey();
+            var v = 'value';
+            redismock.blpop(k, 0, function (err, reply) {
+                expect(err).to.exist;
+                expect(reply).to.not.exist;
+                expect(err).to.be.an.instanceof(Error);
+                expect(err.message.indexOf('WRONGTYPE')).to.be.above(-1);
+                done();
+            });
+            redismock.set(k, v);
+        });
+        it('should call the callback when an element becomes available on a key', function (done) {
+            var k = randkey();
+            var v = 'value';
+            redismock.blpop(k, 0, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal(v);
+                expect(redismock.llen(k)).to.equal(0);
+                done();
+            });
+            setTimeout(function () {
+                redismock.lpush(k, v);
+            }, 1000);
+        });
+        it('should call the callback when an element becomes available on any key', function (done) {
+            var k1 = randkey(), k2 = randkey(), k3 = randkey(), k4 = randkey(), k5 = randkey();
+            var v = 'value';
+            redismock.blpop(k1, k2, k3, k4, k5, 0, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal(v);
+                expect(redismock.llen(k3)).to.equal(0);
+                done();
+            });
+            setTimeout(function () {
+                redismock.lpush(k3, v);
+            }, 1000);
+        });
+        it('should timeout if no elements become available within the given time limit', function (done) {
+            this.timeout(5000);
+            var k1 = randkey(), k2 = randkey(), k3 = randkey(), k4 = randkey(), k5 = randkey();
+            var v = 'value';
+            redismock.blpop(k1, k2, k3, k4, k5, 2, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.not.exist;
+                done();
+            });
+        });
     });
 
     describe('brpop', function () {
-        xit('should brpop');
+        it('should return an error for a key that is not a list', function (done) {
+            var k = randkey();
+            var v = 'value';
+            redismock.brpop(k, 0, function (err, reply) {
+                expect(err).to.exist;
+                expect(reply).to.not.exist;
+                expect(err).to.be.an.instanceof(Error);
+                expect(err.message.indexOf('WRONGTYPE')).to.be.above(-1);
+                done();
+            });
+            redismock.set(k, v);
+        });
+        it('should call the callback when an element becomes available on a key', function (done) {
+            var k = randkey();
+            var v = 'value';
+            redismock.brpop(k, 0, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal(v);
+                expect(redismock.llen(k)).to.equal(0);
+                done();
+            });
+            setTimeout(function () {
+                redismock.lpush(k, v);
+            }, 1000);
+        });
+        it('should call the callback when an element becomes available on any key', function (done) {
+            var k1 = randkey(), k2 = randkey(), k3 = randkey(), k4 = randkey(), k5 = randkey();
+            var v = 'value';
+            redismock.brpop(k1, k2, k3, k4, k5, 0, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal(v);
+                expect(redismock.llen(k3)).to.equal(0);
+                done();
+            });
+            setTimeout(function () {
+                redismock.lpush(k3, v);
+            }, 1000);
+        });
+        it('should timeout if no elements become available within the given time limit', function (done) {
+            this.timeout(5000);
+            var k1 = randkey(), k2 = randkey(), k3 = randkey(), k4 = randkey(), k5 = randkey();
+            var v = 'value';
+            redismock.brpop(k1, k2, k3, k4, k5, 2, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.not.exist;
+                done();
+            });
+        });
     });
 
     describe('brpoplpush', function () {
-        xit('should brpoplpush');
+        it('should return an error for a source that is not a list', function (done) {
+            var s = randkey(), d = randkey();
+            var v = 'value';
+            redismock.brpoplpush(s, d, 0, function (err, reply) {
+                expect(err).to.exist;
+                expect(reply).to.not.exist;
+                expect(err).to.be.an.instanceof(Error);
+                expect(err.message.indexOf('WRONGTYPE')).to.be.above(-1);
+                done();
+            });
+            redismock.set(s, v);
+        });
+        it('should return an error for a destination that is not a list', function (done) {
+            var s = randkey(), d = randkey();
+            var v = 'value';
+            redismock.brpoplpush(s, d, 0, function (err, reply) {
+                expect(err).to.exist;
+                expect(reply).to.not.exist;
+                expect(err).to.be.an.instanceof(Error);
+                expect(err.message.indexOf('WRONGTYPE')).to.be.above(-1);
+                done();
+            });
+            redismock.set(d, v);
+            redismock.lpush(s, v);
+        });
+        it('should call the callback when an element becomes available on source', function (done) {
+            var s = randkey(), d = randkey();
+            var v = 'value';
+            redismock.brpoplpush(s, d, 0, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal(v);
+                expect(redismock.llen(s)).to.equal(0);
+                expect(redismock.llen(d)).to.equal(1);
+                expect(redismock.lindex(d, 0)).to.equal(v);
+                done();
+            });
+            setTimeout(function () {
+                redismock.lpush(s, v);
+            }, 1000);
+        });
+        it('should timeout if no elements become available within the given time limit', function (done) {
+            this.timeout(5000);
+            var s = randkey(), d = randkey();
+            var v = 'value';
+            redismock.brpoplpush(s, d, 2, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.not.exist;
+                done();
+            });
+        });
     });
 
     describe('lindex', function () {
