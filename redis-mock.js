@@ -105,7 +105,6 @@
     var sets = 'sets-' + Math.random();
     var zsets = 'zsets-' + Math.random();
     var hashes = 'hashes-' + Math.random();
-    //var keys = [];
     cache[sets] = {};
     cache[zsets] = {};
     cache[hashes] = {};
@@ -529,7 +528,81 @@
 
     // Incrementally iterate the keyspace.
     redismock.scan = function (cursor, callback) {
-        return cb(callback)(new Error('UNIMPLEMENTED'));
+        var g = gather(this.scan).apply(null, arguments);
+        var idx = 0;
+        var key;
+        var reply = [];
+        var count, match;
+        g
+            .list
+            .forEach(function (option, index) {
+                if (option === 'count') {
+                    count = g.list[index + 1];
+                }
+                if (option === 'match') {
+                    match = new RegExp(translate(g.list[index + 1]));
+                }
+            });
+        if (typeof count === 'undefined' || isNaN(parseInt(count, 10))) {
+            count = 10;
+        }
+        callback = g.callback;
+        for (key in cache) {
+            if (cache.hasOwnProperty(key)) {
+                if (key === sets || key === zsets || key === hashes) {
+                    continue;
+                }
+                idx += 1;
+                if (idx > cursor) {
+                    if (!exists(match) || key.match(match)) {
+                        reply.push(key);
+                        if (reply.length >= count) {
+                            return cb(callback)(null, [idx, reply]);
+                        }
+                    }
+                }
+            }
+        }
+        for (key in cache[sets]) {
+            if (cache[sets].hasOwnProperty(key)) {
+                idx += 1;
+                if (idx > cursor) {
+                    if (!exists(match) || key.match(match)) {
+                        reply.push(key);
+                        if (reply.length >= count) {
+                            return cb(callback)(null, [idx, reply]);
+                        }
+                    }
+                }
+            }
+        }
+        for (key in cache[zsets]) {
+            if (cache[zsets].hasOwnProperty(key)) {
+                idx += 1;
+                if (idx > cursor) {
+                    if (!exists(match) || key.match(match)) {
+                        reply.push(key);
+                        if (reply.length >= count) {
+                            return cb(callback)(null, [idx, reply]);
+                        }
+                    }
+                }
+            }
+        }
+        for (key in cache[hashes]) {
+            if (cache[hashes].hasOwnProperty(key)) {
+                idx += 1;
+                if (idx > cursor) {
+                    if (!exists(match) || key.match(match)) {
+                        reply.push(key);
+                        if (reply.length >= count) {
+                            return cb(callback)(null, [idx, reply]);
+                        }
+                    }
+                }
+            }
+        }
+        return cb(callback)(null, [idx, reply]);
     };
 
     // String Commands

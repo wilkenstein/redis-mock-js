@@ -404,6 +404,7 @@ JavaScript engines, a somewhat specific style is required:
     - renamenx
     - ttl
     - type
+    - scan
     - append
     - bitcount
     - bitop

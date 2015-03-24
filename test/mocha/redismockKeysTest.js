@@ -350,4 +350,46 @@
         });
     });
 
+    describe('scan', function () {
+        it('should return an empty array for an empty db', function (done) {
+            redismock.flushdb();
+            var ret = redismock.scan(0);
+            expect(ret).to.have.lengthOf(2);
+            expect(ret[0]).to.equal(0);
+            expect(ret[1]).to.have.lengthOf(0);
+            redismock.scan(0, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.have.lengthOf(2);
+                expect(reply[0]).to.equal(0);
+                expect(reply[1]).to.have.lengthOf(0);
+                done();
+            });
+        });
+        it('should scan through a small number of keys in one pass', function (done) {
+            redismock.flushdb();
+            var k1 = randkey(), k2 = randkey(), k3 = randkey(), k4 = randkey(), k5 = randkey();
+            var v1 = 'v1', v2 = 'v2', v3 = 'v3', v4 = 'v4', v5 = 'v5';
+            redismock.set(k1, v1);
+            redismock.lpush(k2, v2);
+            redismock.sadd(k3, v3);
+            redismock.zadd(k4, 0, v4);
+            redismock.hset(k5, 'f', v5);
+            var ret = redismock.scan(0);
+            expect(ret).to.have.lengthOf(2);
+            expect(ret[0]).to.equal(5);
+            expect(ret[1]).to.have.lengthOf(5);
+            [k1, k2, k3, k4, k5].forEach(function (k) {
+                expect(ret[1].indexOf(k)).to.be.above(-1);
+            });
+            ret = redismock.scan(ret[0]);
+            expect(ret[0]).to.equal(5);
+            expect(ret[1]).to.have.lengthOf(0);
+            done();
+        });
+        xit('should scan through a large db');
+        xit('should scan through a db with the count option');
+        xit('should scan through a db with the match option');
+        xit('should scan through a db with both the count and match options');
+    });
+
 }).call(this);
