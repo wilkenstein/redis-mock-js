@@ -368,6 +368,7 @@ JavaScript engines, a somewhat specific style is required:
 * 0.1.0
   - Support for most redis commands.
   - Mocha tests for all supported commands.
+* 0.1.1
   - Browser testing and compatibility determination.
 * 1.0.0
   - Support for different versions of mock redis that mimic different

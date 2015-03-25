@@ -3030,7 +3030,7 @@
     // ---------------------
 
     redismock.discard = function (callback) {
-        return cb(callback)(new Error('UNIMPLEMENTED'));
+        return cb(callback)(new Error('ERR DISCARD without MULTI'));
     };
 
     redismock.multi = function () {
@@ -3054,29 +3054,56 @@
         });
         rc.exec = function (callback) {
             if (toApply.some(function (apply) {
-                if (apply[3][0] in watchers && watchers[apply[3][0]]) {
+                var check = apply[3][0];
+                if (exists(watchers[check]) && watchers[check].modified && watchers[check].watchers.indexOf(that) !== -1) {
                     // FAIL! One of the keys has been modified.
-                    watchers = {};
                     return true;
                 }
+                // TODO: Multi-keyed commands.
                 return false;
             })) {
+                that.unwatch();
                 return cb(callback)(null, null);
             }
             toApply.forEach(function (apply) {
                 apply[1].apply(apply[2], apply[3]);
             });
+            that.unwatch();
             return cb(callback)(null, replies);
+        };
+        rc.discard = function (callback) {
+            toApply = [];
+            that.unwatch();
+            return cb(callback)(null, 'OK');
         };
         return rc;
     };
 
     redismock.unwatch = function (callback) {
-        return cb(callback)(new Error('UNIMPLEMENTED'));
+        var that = this;
+        Object
+            .keys(watchers)
+            .forEach(function (k) {
+                if (exists(watchers[k])) {
+                    watchers[k].watchers = watchers[k].watchers.filter(function (mock) {
+                        return that !== mock;
+                    });
+                    if (watchers[k].watchers.length === 0) {
+                        watchers[k] = undefined;
+                    }
+                }
+            });
+        return cb(callback)(null, 'OK');
     };
 
     redismock.watch = function (key, callback) {
-        watchers[key] = false;
+        if (!exists(watchers[key])) {
+            watchers[key] = {
+                modified: false,
+                watchers: []
+            };
+        }
+        watchers[key].watchers.push(this);
         return cb(callback)(null, 'OK');
     };
 
@@ -3248,7 +3275,6 @@
         cache[sets] = {};
         cache[zsets] = {};
         cache[hashes] = {};
-        watchers = {};
         Object.keys(timeouts).forEach(function (key) {
             if (timeouts[key]) {
                 clearTimeout(timeouts[key].timeout);
@@ -3323,7 +3349,7 @@
     // Modifications
     // -------------
 
-    var modifiers = ['del', 'set', 'lpush', 'rpush', 'lpop', 'rpop', 'ltrim', 'lset', 'sadd', 'sdiffstore', 'sinterstore', 'srem', 'sunionstore', 'zadd', 'zrem', 'zunionstore', 'zinterstore']; // TODO: Add the rest.
+    var modifiers = ['del', 'mset', 'msetnx', 'psetex', 'set', 'setbit', 'setex', 'setrange', 'incr', 'decr', 'incrby', 'decrby', 'incrbyfloat', 'blpop', 'brpop', 'brpoplpush', 'linsert', 'lpush', 'lpushx', 'rpush', 'rpushx', 'lpop', 'rpop', 'rpoplpush', 'ltrim', 'lset', 'lrem', 'sadd', 'smove', 'spop', 'sdiffstore', 'sinterstore', 'srem', 'sunionstore', 'zadd', 'zrem', 'zunionstore', 'zinterstore', 'zincrby', 'zremrangebylex', 'zremrangebyrank', 'zremrangebyscore', 'hdel', 'hincrby', 'hincrbyfloat', 'hset', 'hmset', 'hsetnx']; // TODO: Add the rest.
     var capture = {};
     var fkeys = [];
     for (var key in redismock) {
@@ -3348,9 +3374,10 @@
         var mod = redismock[modifier];
         redismock[modifier] = function () {
             var key = arguments[0];
-            if (key in watchers) {
-                watchers[key] = true;
+            if (exists(watchers[key])) {
+                watchers[key].modified = true;
             }
+            // TODO: Multi-key commands.
             return mod.apply(this, arguments);
         };
     });

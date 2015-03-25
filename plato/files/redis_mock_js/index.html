@@ -45,11 +45,11 @@
   <div class="row">
     <div class="col-md-6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">70.19</p>
+      <p class="stat">70.20</p>
     </div>
     <div class="col-md-6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">3461</p>
+      <p class="stat">3488</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="col-md-6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">317.03</p>
+      <p class="stat">302.73</p>
     </div>
     <div class="col-md-6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">45.45</p>
+      <p class="stat">46.31</p>
     </div>
   </div>
 </div>
@@ -3122,7 +3122,7 @@
     // ---------------------
 
     redismock.discard = function (callback) {
-        return cb(callback)(new Error(&#039;UNIMPLEMENTED&#039;));
+        return cb(callback)(new Error(&#039;ERR DISCARD without MULTI&#039;));
     };
 
     redismock.multi = function () {
@@ -3146,29 +3146,56 @@
         });
         rc.exec = function (callback) {
             if (toApply.some(function (apply) {
-                if (apply[3][0] in watchers &amp;&amp; watchers[apply[3][0]]) {
+                var check = apply[3][0];
+                if (exists(watchers[check]) &amp;&amp; watchers[check].modified &amp;&amp; watchers[check].watchers.indexOf(that) !== -1) {
                     // FAIL! One of the keys has been modified.
-                    watchers = {};
                     return true;
                 }
+                // TODO: Multi-keyed commands.
                 return false;
             })) {
+                that.unwatch();
                 return cb(callback)(null, null);
             }
             toApply.forEach(function (apply) {
                 apply[1].apply(apply[2], apply[3]);
             });
+            that.unwatch();
             return cb(callback)(null, replies);
+        };
+        rc.discard = function (callback) {
+            toApply = [];
+            that.unwatch();
+            return cb(callback)(null, &#039;OK&#039;);
         };
         return rc;
     };
 
     redismock.unwatch = function (callback) {
-        return cb(callback)(new Error(&#039;UNIMPLEMENTED&#039;));
+        var that = this;
+        Object
+            .keys(watchers)
+            .forEach(function (k) {
+                if (exists(watchers[k])) {
+                    watchers[k].watchers = watchers[k].watchers.filter(function (mock) {
+                        return that !== mock;
+                    });
+                    if (watchers[k].watchers.length === 0) {
+                        watchers[k] = undefined;
+                    }
+                }
+            });
+        return cb(callback)(null, &#039;OK&#039;);
     };
 
     redismock.watch = function (key, callback) {
-        watchers[key] = false;
+        if (!exists(watchers[key])) {
+            watchers[key] = {
+                modified: false,
+                watchers: []
+            };
+        }
+        watchers[key].watchers.push(this);
         return cb(callback)(null, &#039;OK&#039;);
     };
 
@@ -3340,7 +3367,6 @@
         cache[sets] = {};
         cache[zsets] = {};
         cache[hashes] = {};
-        watchers = {};
         Object.keys(timeouts).forEach(function (key) {
             if (timeouts[key]) {
                 clearTimeout(timeouts[key].timeout);
@@ -3415,7 +3441,7 @@
     // Modifications
     // -------------
 
-    var modifiers = [&#039;del&#039;, &#039;set&#039;, &#039;lpush&#039;, &#039;rpush&#039;, &#039;lpop&#039;, &#039;rpop&#039;, &#039;ltrim&#039;, &#039;lset&#039;, &#039;sadd&#039;, &#039;sdiffstore&#039;, &#039;sinterstore&#039;, &#039;srem&#039;, &#039;sunionstore&#039;, &#039;zadd&#039;, &#039;zrem&#039;, &#039;zunionstore&#039;, &#039;zinterstore&#039;]; // TODO: Add the rest.
+    var modifiers = [&#039;del&#039;, &#039;mset&#039;, &#039;msetnx&#039;, &#039;psetex&#039;, &#039;set&#039;, &#039;setbit&#039;, &#039;setex&#039;, &#039;setrange&#039;, &#039;incr&#039;, &#039;decr&#039;, &#039;incrby&#039;, &#039;decrby&#039;, &#039;incrbyfloat&#039;, &#039;blpop&#039;, &#039;brpop&#039;, &#039;brpoplpush&#039;, &#039;linsert&#039;, &#039;lpush&#039;, &#039;lpushx&#039;, &#039;rpush&#039;, &#039;rpushx&#039;, &#039;lpop&#039;, &#039;rpop&#039;, &#039;rpoplpush&#039;, &#039;ltrim&#039;, &#039;lset&#039;, &#039;lrem&#039;, &#039;sadd&#039;, &#039;smove&#039;, &#039;spop&#039;, &#039;sdiffstore&#039;, &#039;sinterstore&#039;, &#039;srem&#039;, &#039;sunionstore&#039;, &#039;zadd&#039;, &#039;zrem&#039;, &#039;zunionstore&#039;, &#039;zinterstore&#039;, &#039;zincrby&#039;, &#039;zremrangebylex&#039;, &#039;zremrangebyrank&#039;, &#039;zremrangebyscore&#039;, &#039;hdel&#039;, &#039;hincrby&#039;, &#039;hincrbyfloat&#039;, &#039;hset&#039;, &#039;hmset&#039;, &#039;hsetnx&#039;]; // TODO: Add the rest.
     var capture = {};
     var fkeys = [];
     for (var key in redismock) {
@@ -3440,9 +3466,10 @@
         var mod = redismock[modifier];
         redismock[modifier] = function () {
             var key = arguments[0];
-            if (key in watchers) {
-                watchers[key] = true;
+            if (exists(watchers[key])) {
+                watchers[key].modified = true;
             }
+            // TODO: Multi-key commands.
             return mod.apply(this, arguments);
         };
     });
