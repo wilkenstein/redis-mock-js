@@ -11,7 +11,8 @@
         'ifType',
         'toPromiseStyle',
         'copy',
-        'toNodeRedis'
+        'toNodeRedis',
+        'multi'
     ];
 
     describe('implemented commands', function () {
@@ -24,8 +25,8 @@
             }
             for (var key in redismock) {
                 if (blacklist.indexOf(key) !== -1) {
-                        continue;
-                    }
+                    continue;
+                }
                 if (typeof redismock[key] === "function") {
                     err = redismock[key].apply(redismock, args);
                     if (!(err instanceof Error) || err.message !== 'UNIMPLEMENTED') {
