@@ -11,7 +11,8 @@
         'ifType',
         'toPromiseStyle',
         'copy',
-        'toNodeRedis'
+        'toNodeRedis',
+        'multi'
     ];
 
     describe('unimplemented commands', function () {
