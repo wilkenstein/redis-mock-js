@@ -188,6 +188,25 @@
                 done();
             });
         });
+        it('should accept an array of commands to execute', function (done) {
+            var k = randkey();
+            var v1 = 'v1', v2 = 'v2', v3 = 'v3';
+            var commands = [
+                ['zadd', k, 1, v1],
+                ['zadd', k, 2, v2],
+                ['zadd', k, 3, v3]
+            ];
+            redismock
+                .multi(commands)
+                .exec(function (err, replies) {
+                    expect(err).to.not.exist;
+                    expect(replies).to.exist;
+                    expect(replies).to.have.lengthOf(3);
+                    expect(redismock.type(k)).to.equal('zset');
+                    expect(redismock.zcard(k)).to.equal(3);
+                    done();
+                });
+        });
         xit('should be able to execute any command');
     });
 

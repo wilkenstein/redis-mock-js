@@ -61,7 +61,6 @@
                         // 0 args, so skip, or intentionally skip.
                         continue;
                     }
-                    console.log(key);
                     err = redismock[key]();
                     expect(err).to.be.an.instanceof(Error);
                     expect(err.message.indexOf('ERR')).to.be.above(-1);

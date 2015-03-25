@@ -3107,10 +3107,24 @@
         return cb(callback)(new Error('ERR DISCARD without MULTI'));
     };
 
-    redismock.multi = function () {
+    redismock.multi = function (commands) {
         var rc = {};
         var that = this;
         var toApply = [], replies = [];
+        if (exists(commands)) {
+            toApply = toApply.concat(commands.map(function (command) {
+                var args = command.slice(1);
+                args.push(function (error, reply) {
+                    if (error) {
+                        replies.push(error.message);
+                    }
+                    else {
+                        replies.push(reply);
+                    }
+                });
+                return [command[0], that[command[0]], that, args];
+            }));
+        }
         Object.keys(this).forEach(function (key) {
             rc[key] = function () {
                 var args = Array.prototype.slice.call(arguments);

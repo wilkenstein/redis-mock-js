@@ -389,6 +389,11 @@ JavaScript engines, a somewhat specific style is required:
 
 ## Versions
 
+* 0.0.12
+  - Implement transactions in earnest.
+  - Implement scan command.
+  - Expand unit tests for transactions.
+  - Basic unit testing for the scan command.
 * 0.0.11-5
   - Bug fix in srandmember to work correctly with the count option.
 * 0.0.11-4
