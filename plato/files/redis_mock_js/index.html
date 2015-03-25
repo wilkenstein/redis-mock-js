@@ -45,11 +45,11 @@
   <div class="row">
     <div class="col-md-6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">70.20</p>
+      <p class="stat">69.88</p>
     </div>
     <div class="col-md-6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">3488</p>
+      <p class="stat">3562</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="col-md-6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">302.73</p>
+      <p class="stat">308.99</p>
     </div>
     <div class="col-md-6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">46.31</p>
+      <p class="stat">47.26</p>
     </div>
   </div>
 </div>
@@ -621,7 +621,81 @@
 
     // Incrementally iterate the keyspace.
     redismock.scan = function (cursor, callback) {
-        return cb(callback)(new Error(&#039;UNIMPLEMENTED&#039;));
+        var g = gather(this.scan).apply(null, arguments);
+        var idx = 0;
+        var key;
+        var reply = [];
+        var count, match;
+        g
+            .list
+            .forEach(function (option, index) {
+                if (option === &#039;count&#039;) {
+                    count = g.list[index + 1];
+                }
+                if (option === &#039;match&#039;) {
+                    match = new RegExp(translate(g.list[index + 1]));
+                }
+            });
+        if (typeof count === &#039;undefined&#039; || isNaN(parseInt(count, 10))) {
+            count = 10;
+        }
+        callback = g.callback;
+        for (key in cache) {
+            if (cache.hasOwnProperty(key)) {
+                if (key === sets || key === zsets || key === hashes) {
+                    continue;
+                }
+                idx += 1;
+                if (idx &gt; cursor) {
+                    if (!exists(match) || key.match(match)) {
+                        reply.push(key);
+                        if (reply.length &gt;= count) {
+                            return cb(callback)(null, [idx, reply]);
+                        }
+                    }
+                }
+            }
+        }
+        for (key in cache[sets]) {
+            if (cache[sets].hasOwnProperty(key)) {
+                idx += 1;
+                if (idx &gt; cursor) {
+                    if (!exists(match) || key.match(match)) {
+                        reply.push(key);
+                        if (reply.length &gt;= count) {
+                            return cb(callback)(null, [idx, reply]);
+                        }
+                    }
+                }
+            }
+        }
+        for (key in cache[zsets]) {
+            if (cache[zsets].hasOwnProperty(key)) {
+                idx += 1;
+                if (idx &gt; cursor) {
+                    if (!exists(match) || key.match(match)) {
+                        reply.push(key);
+                        if (reply.length &gt;= count) {
+                            return cb(callback)(null, [idx, reply]);
+                        }
+                    }
+                }
+            }
+        }
+        for (key in cache[hashes]) {
+            if (cache[hashes].hasOwnProperty(key)) {
+                idx += 1;
+                if (idx &gt; cursor) {
+                    if (!exists(match) || key.match(match)) {
+                        reply.push(key);
+                        if (reply.length &gt;= count) {
+                            return cb(callback)(null, [idx, reply]);
+                        }
+                    }
+                }
+            }
+        }
+        return cb(callback)(null, [idx, reply]);
     };
 
     // String Commands
