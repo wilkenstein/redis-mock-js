@@ -93,6 +93,12 @@
         });
         return this;
     };
+    SortedSet.prototype.sortScoresRev = function () {
+        this.scores.sort(function (a, b) {
+            return parseInt(b, 10) - parseInt(a, 10);
+        });
+        return this;
+    };
     redismock.SortedSet = function () {
         return new SortedSet();
     };
@@ -1783,6 +1789,7 @@
     // -------------------
 
     redismock.zadd = function (key, score, member, callback) {
+        arguments['2'] += ''; //change member to string type
         var g = gather(this.zadd).apply(this, arguments);
         callback = g.callback;
         g.list = g.list.slice(1);
@@ -2314,7 +2321,7 @@
                 var startScoreIdx = 0, idx = 0;
                 var range = [];
                 cache[zsets][key]
-                    .sortScores()
+                    .sortScoresRev()
                     .scores
                     .some(function (score) {
                         if (idx <= start && idx + cache[zsets][key].set[score].length > start) {
