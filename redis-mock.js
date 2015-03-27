@@ -1789,7 +1789,6 @@
     // -------------------
 
     redismock.zadd = function (key, score, member, callback) {
-        arguments['2'] += ''; //change member to string type
         var g = gather(this.zadd).apply(this, arguments);
         callback = g.callback;
         g.list = g.list.slice(1);
@@ -1809,7 +1808,7 @@
                         return elem !== null;
                     })
                     .map(function (sm) {
-                        return cache[zsets][key].add(sm[0], sm[1]);
+                        return cache[zsets][key].add(sm[0], sm[1].toString());
                     })
                     .reduce(function (cnt, ret) {
                         return cnt + ret;
