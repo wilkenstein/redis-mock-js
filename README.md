@@ -389,6 +389,8 @@ JavaScript engines, a somewhat specific style is required:
 
 ## Versions
 
+* 0.0.12-1
+  - Bug fix for zrevrange and zadd commands.
 * 0.0.12
   - Implement transactions in earnest.
   - Implement scan command.
