@@ -93,6 +93,12 @@
         });
         return this;
     };
+    SortedSet.prototype.sortScoresRev = function () {
+        this.scores.sort(function (a, b) {
+            return parseInt(b, 10) - parseInt(a, 10);
+        });
+        return this;
+    };
     redismock.SortedSet = function () {
         return new SortedSet();
     };
@@ -1802,7 +1808,7 @@
                         return elem !== null;
                     })
                     .map(function (sm) {
-                        return cache[zsets][key].add(sm[0], sm[1]);
+                        return cache[zsets][key].add(sm[0], sm[1].toString());
                     })
                     .reduce(function (cnt, ret) {
                         return cnt + ret;
@@ -2314,7 +2320,7 @@
                 var startScoreIdx = 0, idx = 0;
                 var range = [];
                 cache[zsets][key]
-                    .sortScores()
+                    .sortScoresRev()
                     .scores
                     .some(function (score) {
                         if (idx <= start && idx + cache[zsets][key].set[score].length > start) {

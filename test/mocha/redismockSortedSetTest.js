@@ -1105,9 +1105,9 @@
             redismock.zrevrange(k, 0, 2, function (err, reply) {
                 expect(err).to.not.exist;
                 expect(reply).to.have.lengthOf(3);
-                expect(reply[0]).to.equal(v1);
+                expect(reply[0]).to.equal(v3);
                 expect(reply[1]).to.equal(v2);
-                expect(reply[2]).to.equal(v3);
+                expect(reply[2]).to.equal(v1);
                 done();
             });
         });
@@ -1121,9 +1121,9 @@
             redismock.zrevrange(k, 0, -1, function (err, reply) {
                 expect(err).to.not.exist;
                 expect(reply).to.have.lengthOf(3);
-                expect(reply[0]).to.equal(v1);
+                expect(reply[0]).to.equal(v3);
                 expect(reply[1]).to.equal(v2);
-                expect(reply[2]).to.equal(v3);
+                expect(reply[2]).to.equal(v1);
                 done();
             });
         });
@@ -1135,12 +1135,12 @@
             redismock.zrevrange(k, 0, 2, 'withscores', function (err, reply) {
                 expect(err).to.not.exist;
                 expect(reply).to.have.lengthOf(3*2);
-                expect(reply[0]).to.equal(v1);
-                expect(reply[1]).to.equal(1);
+                expect(reply[0]).to.equal(v3);
+                expect(reply[1]).to.equal(3);
                 expect(reply[2]).to.equal(v2);
                 expect(reply[3]).to.equal(2);
-                expect(reply[4]).to.equal(v3);
-                expect(reply[5]).to.equal(3);
+                expect(reply[4]).to.equal(v1);
+                expect(reply[5]).to.equal(1);
                 done();
             });
         });
