@@ -203,32 +203,27 @@
                 done();
             });
         });
-        it('should return an empty array for a key that does not exist', function (done) {
+        it('should return an null for a key that does not exist', function (done) {
             var k = randkey();
             var v = 'value';
             var f = 'f'
-            expect(redismock.hgetall(k)).to.have.lengthOf(0);
             redismock.hgetall(k, function (err, reply) {
                 expect(err).to.not.exist;
-                expect(reply).to.have.lengthOf(0);
+                expect(reply).to.be.null;
                 done();
             });
         });
-        it('should return all the keys and values in a hash', function (done) {
+        it('should return an object with all the keys and values in a hash', function (done) {
             var k = randkey();
             var v1 = 'v1', v2 = 'v2', v3 = 'v3';
             var f1 = 'f1', f2 = 'f2', f3 = 'f3';
             redismock.hmset(k, f1, v1, f2, v2, f3, v3);
-            expect(redismock.hgetall(k)).to.have.lengthOf(3*2);
+            expect(Object.keys(redismock.hgetall(k))).to.have.lengthOf(3);
             redismock.hgetall(k, function (err, reply) {
                 expect(err).to.not.exist;
-                expect(reply).to.have.lengthOf(3*2);
-                expect(reply.indexOf(f1)).to.be.above(-1);
-                expect(reply.indexOf(v1)).to.equal(reply.indexOf(f1) + 1);
-                expect(reply.indexOf(f2)).to.be.above(-1);
-                expect(reply.indexOf(v2)).to.equal(reply.indexOf(f2) + 1);
-                expect(reply.indexOf(f3)).to.be.above(-1);
-                expect(reply.indexOf(v3)).to.equal(reply.indexOf(f3) + 1);
+                expect(reply).to.have.property(f1, v1)
+                expect(reply).to.have.property(f2, v2)
+                expect(reply).to.have.property(f3, v3)
                 done();
             });
         });
@@ -510,6 +505,27 @@
             expect(redismock.hget(k, f1)).to.equal(v);
             expect(redismock.hget(k, f2)).to.equal(v);
             redismock.hmset(k, f3, v, f4, v, f5, v, f1, v1, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal('OK');
+                expect(redismock.hlen(k)).to.equal(5);
+                expect(redismock.hget(k, f3)).to.equal(v);
+                expect(redismock.hget(k, f4)).to.equal(v);
+                expect(redismock.hget(k, f5)).to.equal(v);
+                expect(redismock.hget(k, f1)).to.equal(v1);
+                done();
+            });
+        });
+        it('should set new fields in the hash as object and return the count', function (done) {
+            var k = randkey();
+            var f1 = 'f1', f2 = 'f2', f3 = 'f3', f4 = 'f4', f5 = 'f5';
+            var v = 'v', v1 = 'v1';
+            var o = {}; o[f1]=v; o[f2]=v;
+            expect(redismock.hmset(k, o)).to.equal('OK');
+            expect(redismock.hlen(k)).to.equal(2);
+            expect(redismock.hget(k, f1)).to.equal(v);
+            expect(redismock.hget(k, f2)).to.equal(v);
+            var o2 = {}; o2[f3]=v; o2[f4]=v; o2[f5]=v; o2[f1]=v1;
+            redismock.hmset(k, o2, function (err, reply) {
                 expect(err).to.not.exist;
                 expect(reply).to.equal('OK');
                 expect(redismock.hlen(k)).to.equal(5);

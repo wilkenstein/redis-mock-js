@@ -1963,7 +1963,7 @@
             callback = arguments[4];
         }
         if (start < 0) {
-            start = this.zcard(key) + start;
+            start = Math.max(this.zcard(key) + start, 0);
         }
         if (stop < 0) {
             stop = this.zcard(key) + stop;
@@ -2630,6 +2630,25 @@
         return this
             .ifType(key, 'hash', callback)
             .thenex(function () {
+                var obj = Object
+                    .keys(cache[hashes][key])
+                    .map(function (field) {
+                        return [field, cache[hashes][key][field]];
+                    })
+                    .reduce(function (prev, fv) {
+                        prev[fv[0]] = fv[1];
+                        return prev;
+                    }, {});
+                return obj;
+            })
+            .thennx(function () { return null; })
+            .end();
+    };
+
+    redismock.hgetall_array = function (key, callback) {
+        return this
+            .ifType(key, 'hash', callback)
+            .thenex(function () {
                 var arr = Object
                     .keys(cache[hashes][key])
                     .map(function (field) {
@@ -2727,7 +2746,7 @@
             .end();
     };
 
-    redismock.hmset = function (key, field, value, callback) {
+    redismock.hmset = function (key, field, callback) {
         var g = gather(this.hmset).apply(this, arguments);
         callback = g.callback;
         return this
@@ -2735,21 +2754,30 @@
             .thennx(function () { cache[hashes][key] = {}; })
             .then(function () {
                 var that = this;
-                g.list = g.list.slice(1);
-                g
-                    .list
-                    .map(function (fv, index) {
-                        if (index % 2 === 0) {
-                            return [fv, g.list[index + 1]];
-                        }
-                        return null;
-                    })
-                    .filter(function (fv) {
-                        return fv !== null;
-                    })
-                    .forEach(function (fv) {
-                        that.hset(key, fv[0], fv[1]);
-                    });
+                var first = g.list[1];
+                if (g.list.length === 2 && typeof first === 'object' && !(first instanceof Array)) {
+                    Object
+                        .keys(first)
+                        .forEach(function(fv) {
+                            that.hset(key, fv, first[fv]);
+                        });
+                } else {
+                    g.list = g.list.slice(1);
+                    g
+                        .list
+                        .map(function (fv, index) {
+                            if (index % 2 === 0) {
+                                return [fv, g.list[index + 1]];
+                            }
+                            return null;
+                        })
+                        .filter(function (fv) {
+                            return fv !== null;
+                        })
+                        .forEach(function (fv) {
+                            that.hset(key, fv[0], fv[1]);
+                        });
+                }
                 return 'OK';
             })
             .end();
@@ -2855,7 +2883,7 @@
             .then(function () {
                 var arr = [];
                 this
-                    .hgetall(key)
+                    .hgetall_array(key)
                     .slice(cursor*2)
                     .some(function (forv, index, hgetall) {
                         if (index % 2 !== 0) {
@@ -3556,6 +3584,10 @@
             };
         });
         return rc;
+    };
+
+    redismock.unref = function () {
+      // noop, but required for API compatibility
     };
 
     if (typeof process !== 'undefined' && process.env.REDIS_JS_TO_NODE_REDIS === '1') {
