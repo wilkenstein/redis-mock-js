@@ -50,7 +50,8 @@
         'copy',
         'toNodeRedis',
         'createClient',
-        'unsubscribe'
+        'unsubscribe',
+        'unref'
     ];
 
     describe('args check', function () {
