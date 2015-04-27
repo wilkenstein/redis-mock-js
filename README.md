@@ -389,6 +389,8 @@ JavaScript engines, a somewhat specific style is required:
 
 ## Versions
 
+* 0.0.12-3
+  - Bug fix to return 0 on scan iteration complete.
 * 0.0.12-2
   - Bug fix for createClient when using toNodeRedis.
   - Merge PR #7 to support hash objects and other node_redis compability issues.

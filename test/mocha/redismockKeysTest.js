@@ -382,7 +382,7 @@
                 expect(ret[1].indexOf(k)).to.be.above(-1);
             });
             ret = redismock.scan(ret[0]);
-            expect(ret[0]).to.equal(5);
+            expect(ret[0]).to.equal(0);
             expect(ret[1]).to.have.lengthOf(0);
             done();
         });

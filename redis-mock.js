@@ -609,6 +609,9 @@
                 }
             }
         }
+        if (!reply.length) {
+            idx = 0;
+        }
         return cb(callback)(null, [idx, reply]);
     };
 
@@ -1780,6 +1783,9 @@
                         cursor += 1;
                         return arr.length >= count;
                     });
+                if (!arr.length) {
+                    cursor = 0;
+                }
                 return [cursor, arr];
             })
             .end();
@@ -2581,6 +2587,9 @@
                 arr = arr.reduce(function (unnested, ms) {
                     return unnested.concat(ms);
                 }, []);
+                if (!arr.length) {
+                    cursor = 0;
+                }
                 return [cursor, arr];
             })
             .end();
@@ -2898,6 +2907,9 @@
                 arr = arr.reduce(function (prev, fv) {
                     return prev.concat(fv);
                 }, []);
+                if (!arr.length) {
+                    cursor = 0;
+                }
                 return [cursor, arr];
             })
             .end();
