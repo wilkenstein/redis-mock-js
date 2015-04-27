@@ -3583,6 +3583,9 @@
                 return client[k].apply(client, arguments);
             };
         });
+        rc.createClient = function () {
+            return redismock.toNodeRedis.apply(rc, arguments);
+        };
         return rc;
     };
 

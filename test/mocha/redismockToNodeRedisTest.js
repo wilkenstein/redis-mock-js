@@ -16,8 +16,9 @@
         return prefix + Math.random();
     }
 
+    redismock = redismock.toNodeRedis();
+
     describe('toNodeRedis', function () {
-        redismock = redismock.toNodeRedis();
         it('should convert redismock into a node redis client', function (done) {
             var k = randkey();
             var v = 'v';
@@ -73,6 +74,33 @@
                 .then(function (reply) {
                     expect(reply).to.equal(1);
                     return prc.smove(k1, k2, v);
+                })
+                .then(function (reply) {
+                    expect(reply).to.equal(1);
+                    done();
+                })
+                .fail(function (err) {
+                    done(err);
+                })
+                .done();
+        });
+    });
+
+    describe('createClient', function () {
+        it('should connect to the redis instance, not to the mock instance', function (done) {
+            var k = randkey();
+            var v = 'v';
+            var newc = redismock.createClient();
+            var prc = newc.toPromiseStyle(Q.defer);
+            prc
+                .set(k, v)
+                .then(function (reply) {
+                    expect(reply).to.equal('OK');
+                    return prc.get(k);
+                })
+                .then(function (reply) {
+                    expect(reply).to.equal(v);
+                    return prc.del(k);
                 })
                 .then(function (reply) {
                     expect(reply).to.equal(1);
