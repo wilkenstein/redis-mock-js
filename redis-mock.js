@@ -278,23 +278,31 @@
         var count = 0;
         var g = gather(this.del).apply(this, arguments);
         callback = g.callback;
-        g.list.forEach(function (key) {
-            if (that.exists(key)) {
-                if (key in cache) {
-                    cache[key] = undefined;
+        var del = function(k) {
+            if (that.exists(k)) {
+                if (k in cache) {
+                    cache[k] = undefined;
                 }
-                else if (key in cache[sets]) {
-                    cache[sets][key] = undefined;
+                else if (k in cache[sets]) {
+                    cache[sets][k] = undefined;
                 }
-                else if (key in cache[zsets]) {
-                    cache[zsets][key] = undefined;
+                else if (k in cache[zsets]) {
+                    cache[zsets][k] = undefined;
                 }
-                else if (key in cache[hashes]) {
-                    cache[hashes][key] = undefined;
+                else if (k in cache[hashes]) {
+                    cache[hashes][k] = undefined;
                 }
                 count += 1;
             }
-        });
+        };
+        if(typeof g.list[0] === 'string') {
+            del(g.list[0]);
+        }
+        else if(typeof g.list[0] === 'object'){
+            g.list[0].forEach(function (k) {
+                del(k);
+            });
+        }   
         return cb(callback)(null, count);
     };
 
