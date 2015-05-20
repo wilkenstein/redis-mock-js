@@ -45,11 +45,11 @@
   <div class="row">
     <div class="col-md-6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">69.88</p>
+      <p class="stat">69.97</p>
     </div>
     <div class="col-md-6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">3562</p>
+      <p class="stat">3637</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="col-md-6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">308.99</p>
+      <p class="stat">312.29</p>
     </div>
     <div class="col-md-6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">47.26</p>
+      <p class="stat">48.33</p>
     </div>
   </div>
 </div>
@@ -182,6 +182,12 @@
     SortedSet.prototype.sortScores = function () {
         this.scores.sort(function (a, b) {
             return parseInt(a, 10) - parseInt(b, 10);
+        });
+        return this;
+    };
+    SortedSet.prototype.sortScoresRev = function () {
+        this.scores.sort(function (a, b) {
+            return parseInt(b, 10) - parseInt(a, 10);
         });
         return this;
     };
@@ -364,23 +370,31 @@
         var count = 0;
         var g = gather(this.del).apply(this, arguments);
         callback = g.callback;
-        g.list.forEach(function (key) {
-            if (that.exists(key)) {
-                if (key in cache) {
-                    cache[key] = undefined;
+        var del = function(k) {
+            if (that.exists(k)) {
+                if (k in cache) {
+                    cache[k] = undefined;
                 }
-                else if (key in cache[sets]) {
-                    cache[sets][key] = undefined;
+                else if (k in cache[sets]) {
+                    cache[sets][k] = undefined;
                 }
-                else if (key in cache[zsets]) {
-                    cache[zsets][key] = undefined;
+                else if (k in cache[zsets]) {
+                    cache[zsets][k] = undefined;
                 }
-                else if (key in cache[hashes]) {
-                    cache[hashes][key] = undefined;
+                else if (k in cache[hashes]) {
+                    cache[hashes][k] = undefined;
                 }
                 count += 1;
             }
-        });
+        };
+        if(typeof g.list[0] === &#039;string&#039;) {
+            del(g.list[0]);
+        }
+        else if(typeof g.list[0] === &#039;object&#039;){
+            g.list[0].forEach(function (k) {
+                del(k);
+            });
+        }   
         return cb(callback)(null, count);
     };
 
@@ -694,6 +708,9 @@
                     }
                 }
             }
+        }
+        if (!reply.length) {
+            idx = 0;
         }
         return cb(callback)(null, [idx, reply]);
     };
@@ -1866,6 +1883,9 @@
                         cursor += 1;
                         return arr.length &gt;= count;
                     });
+                if (!arr.length) {
+                    cursor = 0;
+                }
                 return [cursor, arr];
             })
             .end();
@@ -1894,7 +1914,7 @@
                         return elem !== null;
                     })
                     .map(function (sm) {
-                        return cache[zsets][key].add(sm[0], sm[1]);
+                        return cache[zsets][key].add(sm[0], sm[1].toString());
                     })
                     .reduce(function (cnt, ret) {
                         return cnt + ret;
@@ -2049,7 +2069,7 @@
             callback = arguments[4];
         }
         if (start &lt; 0) {
-            start = this.zcard(key) + start;
+            start = Math.max(this.zcard(key) + start, 0);
         }
         if (stop &lt; 0) {
             stop = this.zcard(key) + stop;
@@ -2406,7 +2426,7 @@
                 var startScoreIdx = 0, idx = 0;
                 var range = [];
                 cache[zsets][key]
-                    .sortScores()
+                    .sortScoresRev()
                     .scores
                     .some(function (score) {
                         if (idx &lt;= start &amp;&amp; idx + cache[zsets][key].set[score].length &gt; start) {
@@ -2667,6 +2687,9 @@
                 arr = arr.reduce(function (unnested, ms) {
                     return unnested.concat(ms);
                 }, []);
+                if (!arr.length) {
+                    cursor = 0;
+                }
                 return [cursor, arr];
             })
             .end();
@@ -2713,6 +2736,25 @@
     };
 
     redismock.hgetall = function (key, callback) {
+        return this
+            .ifType(key, &#039;hash&#039;, callback)
+            .thenex(function () {
+                var obj = Object
+                    .keys(cache[hashes][key])
+                    .map(function (field) {
+                        return [field, cache[hashes][key][field]];
+                    })
+                    .reduce(function (prev, fv) {
+                        prev[fv[0]] = fv[1];
+                        return prev;
+                    }, {});
+                return obj;
+            })
+            .thennx(function () { return null; })
+            .end();
+    };
+
+    redismock.hgetall_array = function (key, callback) {
         return this
             .ifType(key, &#039;hash&#039;, callback)
             .thenex(function () {
@@ -2813,7 +2855,7 @@
             .end();
     };
 
-    redismock.hmset = function (key, field, value, callback) {
+    redismock.hmset = function (key, field, callback) {
         var g = gather(this.hmset).apply(this, arguments);
         callback = g.callback;
         return this
@@ -2821,21 +2863,30 @@
             .thennx(function () { cache[hashes][key] = {}; })
             .then(function () {
                 var that = this;
-                g.list = g.list.slice(1);
-                g
-                    .list
-                    .map(function (fv, index) {
-                        if (index % 2 === 0) {
-                            return [fv, g.list[index + 1]];
-                        }
-                        return null;
-                    })
-                    .filter(function (fv) {
-                        return fv !== null;
-                    })
-                    .forEach(function (fv) {
-                        that.hset(key, fv[0], fv[1]);
-                    });
+                var first = g.list[1];
+                if (g.list.length === 2 &amp;&amp; typeof first === &#039;object&#039; &amp;&amp; !(first instanceof Array)) {
+                    Object
+                        .keys(first)
+                        .forEach(function(fv) {
+                            that.hset(key, fv, first[fv]);
+                        });
+                } else {
+                    g.list = g.list.slice(1);
+                    g
+                        .list
+                        .map(function (fv, index) {
+                            if (index % 2 === 0) {
+                                return [fv, g.list[index + 1]];
+                            }
+                            return null;
+                        })
+                        .filter(function (fv) {
+                            return fv !== null;
+                        })
+                        .forEach(function (fv) {
+                            that.hset(key, fv[0], fv[1]);
+                        });
+                }
                 return &#039;OK&#039;;
             })
             .end();
@@ -2941,7 +2992,7 @@
             .then(function () {
                 var arr = [];
                 this
-                    .hgetall(key)
+                    .hgetall_array(key)
                     .slice(cursor*2)
                     .some(function (forv, index, hgetall) {
                         if (index % 2 !== 0) {
@@ -2956,6 +3007,9 @@
                 arr = arr.reduce(function (prev, fv) {
                     return prev.concat(fv);
                 }, []);
+                if (!arr.length) {
+                    cursor = 0;
+                }
                 return [cursor, arr];
             })
             .end();
@@ -3199,10 +3253,24 @@
         return cb(callback)(new Error(&#039;ERR DISCARD without MULTI&#039;));
     };
 
-    redismock.multi = function () {
+    redismock.multi = function (commands) {
         var rc = {};
         var that = this;
         var toApply = [], replies = [];
+        if (exists(commands)) {
+            toApply = toApply.concat(commands.map(function (command) {
+                var args = command.slice(1);
+                args.push(function (error, reply) {
+                    if (error) {
+                        replies.push(error.message);
+                    }
+                    else {
+                        replies.push(reply);
+                    }
+                });
+                return [command[0], that[command[0]], that, args];
+            }));
+        }
         Object.keys(this).forEach(function (key) {
             rc[key] = function () {
                 var args = Array.prototype.slice.call(arguments);
@@ -3627,7 +3695,14 @@
                 return client[k].apply(client, arguments);
             };
         });
+        rc.createClient = function () {
+            return redismock.toNodeRedis.apply(rc, arguments);
+        };
         return rc;
+    };
+
+    redismock.unref = function () {
+      // noop, but required for API compatibility
     };
 
     if (typeof process !== &#039;undefined&#039; &amp;&amp; process.env.REDIS_JS_TO_NODE_REDIS === &#039;1&#039;) {

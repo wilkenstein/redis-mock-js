@@ -389,6 +389,8 @@ JavaScript engines, a somewhat specific style is required:
 
 ## Versions
 
+* 0.0.12-4
+  - Merge PR #8 to support deleting arrays in the del command.
 * 0.0.12-3
   - Bug fix to return 0 on scan iteration complete.
 * 0.0.12-2
@@ -402,55 +404,75 @@ JavaScript engines, a somewhat specific style is required:
   - Expand unit tests for transactions.
   - Basic unit testing for the scan command.
 * 0.0.11-5
+  - DEPRECATED
   - Bug fix in srandmember to work correctly with the count option.
 * 0.0.11-4
+  - DEPRECATED
   - Implement blpop/brpop/brpoplpush list commands.
   - Unit tests for all list commands.
 * 0.0.11-3
+  - DEPRECATED
   - Bug fix for smove command.
 * 0.0.11-2
+  - DEPRECATED
   - Implement pub/sub in earnest.
   - Unit test pub/sub.
 * 0.0.11-1
+  - DEPRECATED
   - Fix to lpop/rpop to del the key if the list becomes empty as a result of the operation.
 * 0.0.11
+  - DEPRECATED
   - All hash commands implemented.
   - Unit tests for new hash commands.
 * 0.0.10-2
+  - DEPRECATED
   - Sorted Set time improvements at the cost of memory.
 * 0.0.10-1
+  - DEPRECATED
   - Sorted Set time improvements.
   - Load tests for sorted sets.
 * 0.0.10
   - All sorted set commands implemented and tested.
 * 0.0.9-5
+  - DEPRECATED
   - Fix for multi commands to return errors how redis returns errors on exec.
 * 0.0.9-4
+  - DEPRECATED
   - Implemented all sorted set commands, but not yet tested.
 * 0.0.9-3
+  - DEPRECATED
   - Set time & space improvements.
 * 0.0.9-2
+  - DEPRECATED
   - Bug fix for lpush. In redis, lpush(k, v1, v2) = k: [v2, v1].
 * 0.0.9-1
+  - DEPRECATED
   - Bug fix on converting redismock to node redis using process env vars.
 * 0.0.9
+  - DEPRECATED
   - Add support for converting redismock to node redis.
 * 0.0.8-1
+  - DEPRECATED
   - Set diff, inter, and union performance improvements.
   - 1st implementation of load testing.
 * 0.0.8
+  - DEPRECATED
   - Implement all set commands, including sscan.
   - Unit test all set commands.
 * 0.0.7-1
+  - DEPRECATED
   - lrange fix for negative indices.
 * 0.0.7
+  - DEPRECATED
   - All string commands implemented.
   - Better unit tests.
   - Automatically generate and test a minified redis-mock.
 * 0.0.6
+  - DEPRECATED
   - Implement more commands.
   - Implement more unit tests.
 * 0.0.5
+  - DEPRECATED
   - Full browser testing capabilities.
   - All redis commands "un"-implemented.
   - Added way to see implemented vs unimplemented commands.
