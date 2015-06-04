@@ -948,7 +948,8 @@
     redismock.mget = function (key, callback) {
         var g = gather(this.mget).apply(this, arguments);
         callback = g.callback;
-        return cb(callback)(null, g.list.map(function (k) {
+        var data = (typeof g.list[0] === 'object') ? g.list[0] : g.list;
+        return cb(callback)(null, data.map(function (k) {
             return cache[k] || null;
         }));
     };
