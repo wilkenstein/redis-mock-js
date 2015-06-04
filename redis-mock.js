@@ -3409,7 +3409,8 @@
     };
 
     redismock.flushall = function (callback) {
-        return cb(callback)(new Error('UNIMPLEMENTED'));
+        // TODO: right now, just flushdb, but in the future, flush all dbs.
+        return this.flushdb(callback);
     };
 
     redismock.flushdb = function (callback) {
