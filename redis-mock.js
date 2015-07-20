@@ -1008,16 +1008,16 @@
         g
             .list
             .forEach(function (opt, index) {
-                if (opt === 'nx') {
+                if (opt === 'nx' || opt === 'NX') {
                     nx = true;
                 }
-                else if (opt === 'xx') {
+                else if (opt === 'xx' || opt === 'XX') {
                     xx = true;
                 }
-                else if (opt === 'ex') {
+                else if (opt === 'ex' || opt === 'EX') {
                     ex = g.list[index + 1];
                 }
-                else if (opt === 'px') {
+                else if (opt === 'px' || opt === 'PX') {
                     px = g.list[index + 1];
                 }
             });
