@@ -45,11 +45,11 @@
   <div class="row">
     <div class="col-md-6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">69.97</p>
+      <p class="stat">69.96</p>
     </div>
     <div class="col-md-6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">3638</p>
+      <p class="stat">3639</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="col-md-6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">312.26</p>
+      <p class="stat">310.42</p>
     </div>
     <div class="col-md-6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">48.32</p>
+      <p class="stat">48.48</p>
     </div>
   </div>
 </div>
@@ -1040,7 +1040,8 @@
     redismock.mget = function (key, callback) {
         var g = gather(this.mget).apply(this, arguments);
         callback = g.callback;
-        return cb(callback)(null, g.list.map(function (k) {
+        var data = (typeof g.list[0] === &#039;object&#039;) ? g.list[0] : g.list;
+        return cb(callback)(null, data.map(function (k) {
             return cache[k] || null;
         }));
     };
@@ -1099,16 +1100,16 @@
         g
             .list
             .forEach(function (opt, index) {
-                if (opt === &#039;nx&#039;) {
+                if (opt === &#039;nx&#039; || opt === &#039;NX&#039;) {
                     nx = true;
                 }
-                else if (opt === &#039;xx&#039;) {
+                else if (opt === &#039;xx&#039; || opt === &#039;XX&#039;) {
                     xx = true;
                 }
-                else if (opt === &#039;ex&#039;) {
+                else if (opt === &#039;ex&#039; || opt === &#039;EX&#039;) {
                     ex = g.list[index + 1];
                 }
-                else if (opt === &#039;px&#039;) {
+                else if (opt === &#039;px&#039; || opt === &#039;PX&#039;) {
                     px = g.list[index + 1];
                 }
             });
