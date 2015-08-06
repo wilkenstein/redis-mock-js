@@ -3283,22 +3283,28 @@
     // -------------------
 
     redismock.auth = function (password, callback) {
-        return cb(callback)(new Error('UNIMPLEMENTED'));
+        if (!redismock.password) {
+            return cb(callback)(new Error('ERR Client sent AUTH, but no password is set'));
+        }
+        if (password === redismock.password ) {
+            return cb(callback)(null, 'OK');
+        }
+        return cb(callback)(new Error('ERR invalid password'));
     };
 
     redismock.echo = function (message, callback) {
-        return cb(callback)(new Error('UNIMPLEMENTED'));
+        return cb(callback)(null, message);
     };
 
     redismock.ping = function (callback) {
-        return cb(callback)(new Error('UNIMPLEMENTED'));
+        return cb(callback)(null, "PONG");
     };
 
     redismock.quit = function (callback) {
-        return cb(callback)(new Error('UNIMPLEMENTED'));
+        return cb(callback)(null, "OK");
     };
 
-    redismock.select = function (callback) {
+    redismock.select = function (index, callback) {
         return cb(callback)(new Error('UNIMPLEMENTED'));
     };
 
