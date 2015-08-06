@@ -389,6 +389,12 @@ JavaScript engines, a somewhat specific style is required:
 
 ## Versions
 
+* 0.0.13
+  - Implement more connection commands.
+* 0.0.12-7
+  - Merge PR #12 to allow capitalized set options.
+* 0.0.12-6
+* 0.0.12-5
 * 0.0.12-4
   - Merge PR #8 to support deleting arrays in the del command.
 * 0.0.12-3
