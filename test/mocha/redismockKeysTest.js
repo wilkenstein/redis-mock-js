@@ -244,6 +244,227 @@
         });
     });
 
+    describe('randomkey', function () {
+        it('should return nothing for an empty database', function (done) {
+            redismock.flushdb();
+            expect(redismock.randomkey()).to.not.exist;
+            redismock.randomkey(function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.not.exist;
+                done();
+            });
+        });
+        it('should return a key from the database', function (done) {
+            var k = randkey();
+            var v = 'v';
+            redismock.flushdb();
+            redismock.set(k, v);
+            expect(redismock.randomkey()).to.equal(k);
+            redismock.randomkey(function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal(k);
+                done();
+            });
+        });
+        it('should return a random key from the database', function (done) {
+            var keys = [randkey(), randkey(), randkey(), randkey(), randkey()];
+            var values = ['v1', 'v2', 'v3', 'v4', 'v5'];
+            var idx, len;
+            var rk;
+            redismock.flushdb();
+            redismock.set(keys[0], values[0]);
+            redismock.sadd(keys[1], values[1]);
+            redismock.zadd(keys[2], 0.0, values[2]);
+            redismock.hset(keys[3], values[3], values[3]);
+            redismock.set(keys[4], values[4]);
+            len = keys.length;
+            for (idx = 0; idx < len; ++idx) {
+                rk = redismock.randomkey();
+                expect(rk).to.exist;
+                expect(keys.indexOf(rk)).to.be.above(-1);
+            }
+            redismock.randomkey(function (err, rando) {
+                expect(err).to.not.exist;
+                expect(rando).to.exist;
+                expect(keys.indexOf(rando)).to.be.above(-1);
+                done();
+            });
+        });
+    });
+
+    describe('rename', function () {
+        it('should return an error if the key does not exist', function (done) {
+            expect(redismock.rename(randkey(), randkey())).to.be.an.instanceof(Error);
+            redismock.rename(randkey(), randkey(), function (err, reply) {
+                expect(err).to.exist;
+                expect(reply).to.not.exist;
+                expect(err.message.indexOf('no such key')).to.be.above(-1);
+                done();
+            });
+        });
+        it('should rename a string key', function (done) {
+            var k = randkey(), nk = randkey();
+            var v = 'v';
+            redismock.set(k, v);
+            expect(redismock.rename(k, nk)).to.equal('OK');
+            expect(redismock.get(nk)).to.equal(v);
+            expect(redismock.exists(k)).to.equal(0);
+            redismock.del(nk);
+            redismock.set(k, v);
+            redismock.rename(k, nk, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal('OK');
+                expect(redismock.get(nk)).to.equal(v);
+                expect(redismock.exists(k)).to.equal(0);
+                done();
+            });
+        });
+        it('should rename a set key', function (done) {
+            var k = randkey(), nk = randkey();
+            var v = 'v';
+            redismock.sadd(k, v);
+            expect(redismock.rename(k, nk)).to.equal('OK');
+            expect(redismock.sismember(nk, v)).to.equal(1);
+            expect(redismock.exists(k)).to.equal(0);
+            redismock.del(nk);
+            redismock.sadd(k, v);
+            redismock.rename(k, nk, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal('OK');
+                expect(redismock.sismember(nk, v)).to.equal(1);
+                expect(redismock.exists(k)).to.equal(0);
+                done();
+            });
+        });
+        it('should rename a zset key', function (done) {
+            var k = randkey(), nk = randkey();
+            var v = 'v';
+            redismock.zadd(k, 1.0, v);
+            expect(redismock.rename(k, nk)).to.equal('OK');
+            expect(redismock.zscore(nk, v)).to.equal(1.0);
+            expect(redismock.exists(k)).to.equal(0);
+            redismock.del(nk);
+            redismock.zadd(k, 1.0, v);
+            redismock.rename(k, nk, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal('OK');
+                expect(redismock.zscore(nk, v)).to.equal(1.0);
+                expect(redismock.exists(k)).to.equal(0);
+                done();
+            });
+        });
+        it('should rename a hash key', function (done) {
+            var k = randkey(), nk = randkey();
+            var v = 'v';
+            redismock.hset(k, v, v);
+            expect(redismock.rename(k, nk)).to.equal('OK');
+            expect(redismock.hexists(nk, v)).to.equal(1);
+            expect(redismock.exists(k)).to.equal(0);
+            redismock.del(nk);
+            redismock.hset(k, v, v);
+            redismock.rename(k, nk, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal('OK');
+                expect(redismock.hexists(nk, v)).to.equal(1);
+                expect(redismock.exists(k)).to.equal(0);
+                done();
+            });
+        });
+    });
+
+    describe('renamenx', function () {
+        it('should return an error if the key does not exist', function (done) {
+            expect(redismock.renamenx(randkey(), randkey())).to.be.an.instanceof(Error);
+            redismock.renamenx(randkey(), randkey(), function (err, reply) {
+                expect(err).to.exist;
+                expect(reply).to.not.exist;
+                expect(err.message.indexOf('no such key')).to.be.above(-1);
+                done();
+            });
+        });
+        it('should rename a string key', function (done) {
+            var k = randkey(), nk = randkey();
+            var v = 'v';
+            redismock.set(k, v);
+            expect(redismock.renamenx(k, nk)).to.equal(1);
+            expect(redismock.get(nk)).to.equal(v);
+            expect(redismock.exists(k)).to.equal(0);
+            redismock.del(nk);
+            redismock.set(k, v);
+            redismock.renamenx(k, nk, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal(1);
+                expect(redismock.get(nk)).to.equal(v);
+                expect(redismock.exists(k)).to.equal(0);
+                done();
+            });
+        });
+        it('should rename a set key', function (done) {
+            var k = randkey(), nk = randkey();
+            var v = 'v';
+            redismock.sadd(k, v);
+            expect(redismock.renamenx(k, nk)).to.equal(1);
+            expect(redismock.sismember(nk, v)).to.equal(1);
+            expect(redismock.exists(k)).to.equal(0);
+            redismock.del(nk);
+            redismock.sadd(k, v);
+            redismock.renamenx(k, nk, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal(1);
+                expect(redismock.sismember(nk, v)).to.equal(1);
+                expect(redismock.exists(k)).to.equal(0);
+                done();
+            });
+        });
+        it('should rename a zset key', function (done) {
+            var k = randkey(), nk = randkey();
+            var v = 'v';
+            redismock.zadd(k, 1.0, v);
+            expect(redismock.renamenx(k, nk)).to.equal(1);
+            expect(redismock.zscore(nk, v)).to.equal(1.0);
+            expect(redismock.exists(k)).to.equal(0);
+            redismock.del(nk);
+            redismock.zadd(k, 1.0, v);
+            redismock.renamenx(k, nk, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal(1);
+                expect(redismock.zscore(nk, v)).to.equal(1.0);
+                expect(redismock.exists(k)).to.equal(0);
+                done();
+            });
+        });
+        it('should rename a hash key', function (done) {
+            var k = randkey(), nk = randkey();
+            var v = 'v';
+            redismock.hset(k, v, v);
+            expect(redismock.renamenx(k, nk)).to.equal(1);
+            expect(redismock.hexists(nk, v)).to.equal(1);
+            expect(redismock.exists(k)).to.equal(0);
+            redismock.del(nk);
+            redismock.hset(k, v, v);
+            redismock.renamenx(k, nk, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal(1);
+                expect(redismock.hexists(nk, v)).to.equal(1);
+                expect(redismock.exists(k)).to.equal(0);
+                done();
+            });
+        });
+        it('should not rename a key if the key exists', function (done) {
+            var k = randkey(), nk = randkey();
+            var v = 'v';
+            redismock.set(k, v);
+            redismock.sadd(nk, v);
+            expect(redismock.renamenx(k, nk)).to.equal(0);
+            redismock.renamenx(nk, k, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.exist;
+                expect(reply).to.equal(0);
+                done();
+            });
+        });
+    });
+
     describe('keys', function () {
         it('should return an empty array for an empty database', function (done) {
             redismock.flushdb();

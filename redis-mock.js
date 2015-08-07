@@ -430,40 +430,36 @@
 
     // Return a random key from the keyspace.
     redismock.randomkey = function (callback) {
-        // Return the Nth key with probability 1/N.
-        var n = 1;
-        for (var key in cache) {
-            if (cache.hasOwnProperty(key)) {
-                if (Math.random() < 1/n) {
-                    if (key === sets) {
-                        for (var setkey in cache[sets]) {
-                            return cb(callback)(null, setkey);
-                        }
-                        return cb(callback)(null, null);
-                    }
-                    if (key === zsets) {
-                        for (var zsetkey in cache[zsets]) {
-                            return cb(callback)(null, zsetkey);
-                        }
-                        return cb(callback)(null, null);
-                    }
-                    if (key === hashes) {
-                        for (var hashkey in cache[zsets]) {
-                            return cb(callback)(null, hashkey);
-                        }
-                        return cb(callback)(null, null);
-                    }
-                    return cb(callback)(null, key);
+        var rando = null;
+        function loop_through(count, looper) {
+            var key;
+            for (key in looper) {
+                if (key === sets) {
+                    count = loop_through(count, cache[sets]);
+                    continue;
                 }
-                n += 1;
+                else if (key === zsets) {
+                    count = loop_through(count, cache[zsets]);
+                    continue;
+                }
+                else if (key === hashes) {
+                    count = loop_through(count, cache[hashes]);
+                    continue;
+                }
+                else if (Math.random() < 1/count) {
+                    rando = key;
+                }
+                count += 1;
             }
+            return count;
         }
-        return cb(callback)(null, null);
+        loop_through(1, cache);
+        return cb(callback)(null, rando);
     };
 
     // Rename a key.
     redismock.rename = function (key, newkey, callback) {
-        var val, type;
+        var type;
         if (!this.exists(key)) {
             return cb(callback)(new Error('ERR no such key'));
         }
@@ -472,29 +468,33 @@
         }
         type = this.type(key);
         if (type === 'string' || type === 'list') {
-            val = cache[key];
+            cache[newkey] = cache[key];
         }
         else if (type === 'set') {
-            val = cache[sets][key];
+            cache[sets][newkey] = cache[sets][key];
         }
         else if (type === 'zset') {
-            val = cache[zsets][key];
+            cache[zsets][newkey] = cache[zsets][key];
         }
         else if (type === 'hash') {
-            val = cache[hashes][key];
+            cache[hashes][newkey] = cache[hashes][key];
         }
         // else can't occur yet...
-        cache[newkey] = val;
         this.del(key);
         return cb(callback)(null, 'OK');
     };
     
     // Rename a key, only if the new key does not exist.
     redismock.renamenx = function (key, newkey, callback) {
+        var r;
         if (this.exists(newkey)) {
             return cb(callback)(null, 0);
         }
-        return this.rename(key, newkey, callback);
+        r = this.rename(key, newkey);
+        if (r instanceof Error) {
+            return cb(callback)(r);
+        }
+        return cb(callback)(null, 1);
     };
 
     // Create a key using the provided serialized value, previously obtained using DUMP.

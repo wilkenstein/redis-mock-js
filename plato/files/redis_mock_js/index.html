@@ -45,7 +45,7 @@
   <div class="row">
     <div class="col-md-6">
       <h2 class="header">Maintainability <a href="http://blogs.msdn.com/b/codeanalysis/archive/2007/11/20/maintainability-index-range-and-meaning.aspx"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="A value between 0 and 100 that represents the relative ease of maintaining the code. A high value means better maintainability." data-original-title="Maintainability Index"></i></a></h2>
-      <p class="stat">69.94</p>
+      <p class="stat">69.97</p>
     </div>
     <div class="col-md-6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="col-md-6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">309.47</p>
+      <p class="stat">310.37</p>
     </div>
     <div class="col-md-6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">48.59</p>
+      <p class="stat">48.56</p>
     </div>
   </div>
 </div>
@@ -522,40 +522,36 @@
 
     // Return a random key from the keyspace.
     redismock.randomkey = function (callback) {
-        // Return the Nth key with probability 1/N.
-        var n = 1;
-        for (var key in cache) {
-            if (cache.hasOwnProperty(key)) {
-                if (Math.random() &lt; 1/n) {
-                    if (key === sets) {
-                        for (var setkey in cache[sets]) {
-                            return cb(callback)(null, setkey);
-                        }
-                        return cb(callback)(null, null);
-                    }
-                    if (key === zsets) {
-                        for (var zsetkey in cache[zsets]) {
-                            return cb(callback)(null, zsetkey);
-                        }
-                        return cb(callback)(null, null);
-                    }
-                    if (key === hashes) {
-                        for (var hashkey in cache[zsets]) {
-                            return cb(callback)(null, hashkey);
-                        }
-                        return cb(callback)(null, null);
-                    }
-                    return cb(callback)(null, key);
+        var rando = null;
+        function loop_through(count, looper) {
+            var key;
+            for (key in looper) {
+                if (key === sets) {
+                    count = loop_through(count, cache[sets]);
+                    continue;
                 }
-                n += 1;
+                else if (key === zsets) {
+                    count = loop_through(count, cache[zsets]);
+                    continue;
+                }
+                else if (key === hashes) {
+                    count = loop_through(count, cache[hashes]);
+                    continue;
+                }
+                else if (Math.random() &lt; 1/count) {
+                    rando = key;
+                }
+                count += 1;
             }
+            return count;
         }
-        return cb(callback)(null, null);
+        loop_through(1, cache);
+        return cb(callback)(null, rando);
     };
 
     // Rename a key.
     redismock.rename = function (key, newkey, callback) {
-        var val, type;
+        var type;
         if (!this.exists(key)) {
             return cb(callback)(new Error(&#039;ERR no such key&#039;));
         }
@@ -564,29 +560,33 @@
         }
         type = this.type(key);
         if (type === &#039;string&#039; || type === &#039;list&#039;) {
-            val = cache[key];
+            cache[newkey] = cache[key];
         }
         else if (type === &#039;set&#039;) {
-            val = cache[sets][key];
+            cache[sets][newkey] = cache[sets][key];
         }
         else if (type === &#039;zset&#039;) {
-            val = cache[zsets][key];
+            cache[zsets][newkey] = cache[zsets][key];
         }
         else if (type === &#039;hash&#039;) {
-            val = cache[hashes][key];
+            cache[hashes][newkey] = cache[hashes][key];
         }
         // else can&#039;t occur yet...
-        cache[newkey] = val;
         this.del(key);
         return cb(callback)(null, &#039;OK&#039;);
     };
     
     // Rename a key, only if the new key does not exist.
     redismock.renamenx = function (key, newkey, callback) {
+        var r;
         if (this.exists(newkey)) {
             return cb(callback)(null, 0);
         }
-        return this.rename(key, newkey, callback);
+        r = this.rename(key, newkey);
+        if (r instanceof Error) {
+            return cb(callback)(r);
+        }
+        return cb(callback)(null, 1);
     };
 
     // Create a key using the provided serialized value, previously obtained using DUMP.
