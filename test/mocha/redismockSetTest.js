@@ -629,6 +629,7 @@
             var v = 'v';
             redismock.set(k, v);
             expect(redismock.sunion(k)).to.be.an.instanceof(Error);
+            expect(redismock.sunion(k, k)).to.be.an.instanceof(Error);
             redismock.sadd(k1, v);
             redismock.set(k2, v);
             redismock.sadd(k3, v);

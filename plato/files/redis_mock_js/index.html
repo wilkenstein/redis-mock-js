@@ -49,7 +49,7 @@
     </div>
     <div class="col-md-6">
       <h2 class="header">Lines of code <i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Source Lines of Code / Logical Lines of Code" data-original-title="SLOC/LSLOC"></i></h2>
-      <p class="stat">3645</p>
+      <p class="stat">3647</p>
     </div>
   </div>
   <div class="row historical">
@@ -63,11 +63,11 @@
   <div class="row">
     <div class="col-md-6">
       <h2 class="header">Difficulty  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="The difficulty measure is related to the difficulty of the program to write or understand." data-original-title="Difficulty"></i></a></h2>
-      <p class="stat">310.37</p>
+      <p class="stat">309.43</p>
     </div>
     <div class="col-md-6">
       <h2 class="header">Estimated Errors  <a href="http://en.wikipedia.org/wiki/Halstead_complexity_measures"><i class="icon icon-info-sign" rel="popover" data-placement="top" data-trigger="hover" data-content="Halstead's delivered bugs is an estimate for the number of errors in the implementation." data-original-title="Delivered Bugs"></i></a></h2>
-      <p class="stat">48.56</p>
+      <p class="stat">48.58</p>
     </div>
   </div>
 </div>
@@ -370,7 +370,7 @@
         var count = 0;
         var g = gather(this.del).apply(this, arguments);
         callback = g.callback;
-        var del = function(k) {
+        var deleter = function (k) {
             if (that.exists(k)) {
                 if (k in cache) {
                     cache[k] = undefined;
@@ -384,17 +384,17 @@
                 else if (k in cache[hashes]) {
                     cache[hashes][k] = undefined;
                 }
-                count += 1;
+                return 1;
             }
+            return 0;
         };
-        if(typeof g.list[0] === &#039;string&#039;) {
-            del(g.list[0]);
+        var toDelete = g.list;
+        if (typeof g.list[0] === &#039;object&#039;) { // Allow an array to be passed in.
+            toDelete = g.list[0];
         }
-        else if(typeof g.list[0] === &#039;object&#039;){
-            g.list[0].forEach(function (k) {
-                del(k);
-            });
-        }   
+        toDelete.forEach(function (k) {
+            count += deleter(k);
+        });
         return cb(callback)(null, count);
     };
 
@@ -1265,7 +1265,7 @@
 
     redismock.brpop = function (key, timeout, callback) {
        var that = this;
-        var g = gather(this.blpop).apply(null, arguments);
+        var g = gather(this.brpop).apply(null, arguments);
         var keys = g.list.slice(0, g.list.length - 1);
         var f, timedout = false;
         timeout = g.list[g.list.length - 1];
@@ -1645,7 +1645,7 @@
 
     redismock.sinter = function (key, callback) {
         var that = this;
-        var g = gather(this.sdiff).apply(this, arguments);
+        var g = gather(this.sinter).apply(this, arguments);
         callback = g.callback;
         if (!g.list.every(function (k) {
             return that.type(k) === &#039;set&#039; || that.type(k) === &#039;none&#039;;
@@ -1805,7 +1805,7 @@
 
     redismock.sunion = function (key, callback) {
         var that = this;
-        var g = gather(this.sdiff).apply(this, arguments);
+        var g = gather(this.sunion).apply(this, arguments);
         callback = g.callback;
         if (!g.list.every(function (k) {
             return that.type(k) === &#039;set&#039; || that.type(k) === &#039;none&#039;;
@@ -3105,12 +3105,12 @@
         var g = gather(this.pubsub).apply(this, arguments);
         var ret = null, pat;
         if (subcommand === &quot;channels&quot;) {
-            if (g.list.length) {
+            if (g.list[1]) {
                 pat = new RegExp(translate(g.list[1]));
             }
             ret = subscribers
                 .map(function (subscriber) {
-                    if (exists(subscriber.channel) &amp;&amp; (!g.list.length || subscriber.channel.match(pat))) {
+                    if (exists(subscriber.channel) &amp;&amp; (!pat || subscriber.channel.match(pat))) {
                         return subscriber.channel;
                     }
                     return null;
@@ -3122,9 +3122,10 @@
         else if (subcommand === &quot;numsub&quot;) {
             ret = g
                 .list
+                .slice(1)
                 .map(function (channel) {
                     return subscribers
-                        .reduce(function (subscriber, count) {
+                        .reduce(function (count, subscriber) {
                             if (subscriber.channel === channel) {
                                 return count + 1;
                             }
@@ -3137,13 +3138,14 @@
         }
         else if (subcommand === &quot;numpat&quot;) {
             ret = subscribers
-                .reduce(function (subscriber, count) {
+                .reduce(function (count, subscriber) {
                     if (exists(subscriber.pattern)) {
                         return count + 1;
                     }
                     return count;
                 }, 0);
         }
+        callback = g.callback;
         return cb(callback)(null, ret);
     };
 

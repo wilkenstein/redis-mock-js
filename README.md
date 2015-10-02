@@ -315,7 +315,7 @@ a line!
 
 ## Testing
 
-This project uses [jshint](http://jshint.com),
+This project uses [jshint](http://jshint.com), [istanbul](http://gotwarlost.github.io/istanbul/),
 [karma](http://karma-runner.github.io/0.12/index.html) +
 [mocha](http://mochajs.org) + [chai](http://chaijs.com), and [plato](https://github.com/es-analysis/plato).
 
@@ -325,7 +325,11 @@ To run the full test suite from source, issue the standard npm command:
 $ npm test
 ````
 
-This will run jshint against all the source files, run the full mocha suite with a coverage report, and finally run a complexity report against all the source files. Currently, the only source file is redis-mock.js.
+This will run jshint against all the source files, run the full mocha
+suite with a coverage report, and finally run a complexity report
+against all the source files. Currently, the only source file is
+`redis-mock.js`. Note that you have to be running a local `redis-server`
+at the default port for the `toNodeRedis` tests to succeed
 
 To run the mocha tests within a particular browser using karma, issue the following npm commands:
 
@@ -365,9 +369,6 @@ JavaScript engines, a somewhat specific style is required:
 
 ## Roadmap
 
-* 0.1.0
-  - Support for most redis commands.
-  - Mocha tests for all supported commands.
 * 0.1.1
   - Browser testing and compatibility determination.
 * 1.0.0
@@ -389,22 +390,36 @@ JavaScript engines, a somewhat specific style is required:
 
 ## Versions
 
+* 0.1.0
+  - Implement all unit tests for supported commands.
+  - Fix the del command.
+  - Fix the pubsub command.
+  - Bump version to reflect roadmap milestone.
 * 0.0.13
+  - DEPRECATED
   - Implement more connection commands.
 * 0.0.12-7
+  - DEPRECATED
   - Merge PR #12 to allow capitalized set options.
 * 0.0.12-6
+  - DEPRECATED
 * 0.0.12-5
+  - DEPRECATED
 * 0.0.12-4
+  - DEPRECATED
   - Merge PR #8 to support deleting arrays in the del command.
 * 0.0.12-3
+  - DEPRECATED
   - Bug fix to return 0 on scan iteration complete.
 * 0.0.12-2
+  - DEPRECATED
   - Bug fix for createClient when using toNodeRedis.
   - Merge PR #7 to support hash objects and other node_redis compability issues.
 * 0.0.12-1
+  - DEPRECATED
   - Bug fix for zrevrange and zadd commands.
 * 0.0.12
+  - DEPRECATED
   - Implement transactions in earnest.
   - Implement scan command.
   - Expand unit tests for transactions.

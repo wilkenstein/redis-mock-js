@@ -84,8 +84,126 @@
                 done();
             });
         });
-        xit('should delete a zset');
-        xit('should delete multiple mixed keys');
+        it('should delete a zset', function (done) {
+            var k = randkey();
+            var v = 'v';
+            redismock.zadd(k, 1, v);
+            expect(redismock.exists(k)).to.equal(1);
+            expect(redismock.zcard(k)).to.equal(1);
+            expect(redismock.del(k)).to.equal(1);
+            expect(redismock.exists(k)).to.equal(0);
+            expect(redismock.zcard(k)).to.equal(0);
+            redismock.zadd(k, 1, v);
+            expect(redismock.exists(k)).to.equal(1);
+            expect(redismock.zscore(k, v)).to.equal(1);
+            redismock.del(k, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal(1);
+                expect(redismock.exists(k)).to.equal(0);
+                expect(redismock.zcard(k)).to.equal(0);
+                done();
+            });
+        });
+        it('should delete a hash', function (done) {
+            var k = randkey();
+            var v = 'v';
+            redismock.hset(k, v, v);
+            expect(redismock.exists(k)).to.equal(1);
+            expect(redismock.hlen(k)).to.equal(1);
+            expect(redismock.del(k)).to.equal(1);
+            expect(redismock.exists(k)).to.equal(0);
+            expect(redismock.hlen(k)).to.equal(0);
+            redismock.hset(k, v, v);
+            expect(redismock.exists(k)).to.equal(1);
+            expect(redismock.hlen(k)).to.equal(1);
+            redismock.del(k, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal(1);
+                expect(redismock.exists(k)).to.equal(0);
+                expect(redismock.hlen(k)).to.equal(0);
+                done();
+            });
+        });
+        it('should delete multiple mixed keys', function (done) {
+            var k1 = randkey(), k2 = randkey(), k3 = randkey(), k4 = randkey(), k5 = randkey();
+            var v = 'v';
+            redismock.set(k1, v);
+            redismock.lpush(k2, v);
+            redismock.sadd(k3, v);
+            redismock.zadd(k4, 1, v);
+            redismock.hset(k5, v, v);
+            expect(redismock.exists(k1)).to.equal(1);
+            expect(redismock.exists(k2)).to.equal(1);
+            expect(redismock.exists(k3)).to.equal(1);
+            expect(redismock.exists(k4)).to.equal(1);
+            expect(redismock.exists(k5)).to.equal(1);
+            expect(redismock.del(k1, k2, k3, k4, k5)).to.equal(5);
+            expect(redismock.exists(k1)).to.equal(0);
+            expect(redismock.exists(k2)).to.equal(0);
+            expect(redismock.exists(k3)).to.equal(0);
+            expect(redismock.exists(k4)).to.equal(0);
+            expect(redismock.exists(k5)).to.equal(0);
+            redismock.set(k1, v);
+            redismock.lpush(k2, v);
+            redismock.sadd(k3, v);
+            redismock.zadd(k4, 1, v);
+            redismock.hset(k5, v, v);
+            expect(redismock.exists(k1)).to.equal(1);
+            expect(redismock.exists(k2)).to.equal(1);
+            expect(redismock.exists(k3)).to.equal(1);
+            expect(redismock.exists(k4)).to.equal(1);
+            expect(redismock.exists(k5)).to.equal(1);
+            redismock.del(k5, k3, k1, k4, k2, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal(5);
+                expect(redismock.exists(k1)).to.equal(0);
+                expect(redismock.exists(k2)).to.equal(0);
+                expect(redismock.exists(k3)).to.equal(0);
+                expect(redismock.exists(k4)).to.equal(0);
+                expect(redismock.exists(k5)).to.equal(0);
+                done();
+            });
+        });
+        it('should delete an array of keys', function (done) {
+            var k1 = randkey(), k2 = randkey(), k3 = randkey(), k4 = randkey(), k5 = randkey();
+            var v = 'v';
+            redismock.set(k1, v);
+            redismock.lpush(k2, v);
+            redismock.sadd(k3, v);
+            redismock.zadd(k4, 1, v);
+            redismock.hset(k5, v, v);
+            expect(redismock.exists(k1)).to.equal(1);
+            expect(redismock.exists(k2)).to.equal(1);
+            expect(redismock.exists(k3)).to.equal(1);
+            expect(redismock.exists(k4)).to.equal(1);
+            expect(redismock.exists(k5)).to.equal(1);
+            expect(redismock.del([k1, k2, k3, k4, k5])).to.equal(5);
+            expect(redismock.exists(k1)).to.equal(0);
+            expect(redismock.exists(k2)).to.equal(0);
+            expect(redismock.exists(k3)).to.equal(0);
+            expect(redismock.exists(k4)).to.equal(0);
+            expect(redismock.exists(k5)).to.equal(0);
+            redismock.set(k1, v);
+            redismock.lpush(k2, v);
+            redismock.sadd(k3, v);
+            redismock.zadd(k4, 1, v);
+            redismock.hset(k5, v, v);
+            expect(redismock.exists(k1)).to.equal(1);
+            expect(redismock.exists(k2)).to.equal(1);
+            expect(redismock.exists(k3)).to.equal(1);
+            expect(redismock.exists(k4)).to.equal(1);
+            expect(redismock.exists(k5)).to.equal(1);
+            redismock.del([k5, k3, k1, k4, k2], function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal(5);
+                expect(redismock.exists(k1)).to.equal(0);
+                expect(redismock.exists(k2)).to.equal(0);
+                expect(redismock.exists(k3)).to.equal(0);
+                expect(redismock.exists(k4)).to.equal(0);
+                expect(redismock.exists(k5)).to.equal(0);
+                done();
+            });
+        });
     });
 
     describe('dump', function () {
@@ -195,11 +313,293 @@
                 });
             }, 1100);
         });
-        xit('should update the expiry time on subsequent expire calls');
+        it('should update the expiry time on subsequent expire calls', function (done) {
+            this.timeout(5000);
+            var k = randkey();
+            var v = 'v';
+            redismock.set(k, v);
+            expect(redismock.expire(k, 1)).to.equal(1);
+            setTimeout(function () {
+                expect(redismock.get(k)).to.equal(v);
+                expect(redismock.expire(k, 1)).to.equal(1);
+            }, 750);
+            setTimeout(function () {
+                expect(redismock.get(k)).to.equal(v);
+            }, 1200);
+            setTimeout(function () {
+                expect(redismock.get(k)).to.not.exist;
+                done();
+            }, 2500);
+        });
+        it('should delete the key if the specified timeout is less than or equal to 0', function (done) {
+            var k = randkey();
+            var v = 'v';
+            redismock.set(k, v);
+            expect(redismock.expire(k, 0)).to.equal(1);
+            expect(redismock.get(k)).to.not.exist;
+            expect(redismock.exists(k)).to.equal(0);
+            redismock.set(k, v);
+            redismock.expire(k, -1, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal(1);
+                expect(redismock.get(k)).to.not.exist;
+                expect(redismock.exists(k)).to.equal(0);
+                done();
+            });
+        });
     });
 
     describe('expireat', function () {
-        xit('should expireat');
+        it('should return 0 for a key that does not exist', function (done) {
+            var k = randkey();
+            var v = 'v';
+            var now = (new Date()).getTime()/1000;
+            expect(redismock.expireat(k, now + 1)).to.equal(0);
+            redismock.expireat(k, now + 2, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal(0);
+                done();
+            });
+        });
+        it('should return 1 and expire a key at the specified timestamp', function (done) {
+            this.timeout(5000);
+            var k = randkey();
+            var v = 'v';
+            var now = (new Date()).getTime()/1000;
+            redismock.set(k, v);
+            expect(redismock.expireat(k, now + 1)).to.equal(1);
+            setTimeout(function () {
+                expect(redismock.get(k)).to.equal(v);
+            }, 750);
+            setTimeout(function () {
+                expect(redismock.get(k)).to.not.exist;
+                redismock.set(k, v);
+                now = (new Date()).getTime()/1000;
+                redismock.expireat(k, now + 1, function (err, reply) {
+                    expect(err).to.not.exist;
+                    expect(reply).to.equal(1);
+                    setTimeout(function () {
+                        expect(redismock.get(k)).to.not.exist;
+                        done();
+                    }, 1200);
+                });
+            }, 1700);
+        });
+        it('should update the expiry time on subsequent expireat calls', function (done) {
+            this.timeout(5000);
+            var k = randkey();
+            var v = 'v';
+            var now = (new Date()).getTime()/1000;
+            redismock.set(k, v);
+            expect(redismock.expireat(k, now + 1)).to.equal(1);
+            setTimeout(function () {
+                expect(redismock.get(k)).to.equal(v);
+                expect(redismock.expireat(k, now + 1 + 2)).to.equal(1);
+            }, 750);
+            setTimeout(function () {
+                expect(redismock.get(k)).to.equal(v);
+            }, 1200);
+            setTimeout(function () {
+                expect(redismock.get(k)).to.not.exist;
+                done();
+            }, 3500);
+        });
+        it('should delete the key if the specified timeout is less than or equal to 0', function (done) {
+            var k = randkey();
+            var v = 'v';
+            redismock.set(k, v);
+            expect(redismock.expireat(k, 0)).to.equal(1);
+            expect(redismock.get(k)).to.not.exist;
+            expect(redismock.exists(k)).to.equal(0);
+            redismock.set(k, v);
+            redismock.expireat(k, -1, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal(1);
+                expect(redismock.get(k)).to.not.exist;
+                expect(redismock.exists(k)).to.equal(0);
+                done();
+            });
+        });
+    });
+
+    describe('persist', function () {
+        it('should return 0 for a key that does not exist', function (done) {
+            var k = randkey();
+            var v = 'v';
+            expect(redismock.persist(k)).to.equal(0);
+            redismock.persist(k, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal(0);
+                done();
+            });
+        });
+        it('should return 0 for a key that does not have a timeout', function (done) {
+            var k = randkey();
+            var v = 'v';
+            redismock.set(k, v);
+            expect(redismock.persist(k)).to.equal(0);
+            redismock.persist(k, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal(0);
+                done();
+            });
+        });
+        it('should persist a key with an associated timeout', function (done) {
+            var k = randkey();
+            var v = 'v';
+            redismock.set(k, v);
+            redismock.expire(k, 1);
+            setTimeout(function () {
+                expect(redismock.get(k)).to.equal(v);
+                expect(redismock.persist(k)).to.equal(1);
+            }, 750);
+            setTimeout(function () {
+                expect(redismock.get(k)).to.equal(v);
+                done();
+            }, 1300);
+        });
+    });
+
+    describe('pexpire', function () {
+        it('should return 0 for a key that does not exist', function (done) {
+            var k = randkey();
+            var v = 'v';
+            expect(redismock.pexpire(k, 1000)).to.equal(0);
+            redismock.pexpire(k, 1, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal(0);
+                done();
+            });
+        });
+        it('should return 1 and expire a key in milliseconds', function (done) {
+            this.timeout(5000);
+            var k = randkey();
+            var v = 'v';
+            redismock.set(k, v);
+            expect(redismock.pexpire(k, 1175)).to.equal(1);
+            setTimeout(function () {
+                expect(redismock.get(k)).to.equal(v);
+            }, 750);
+            setTimeout(function () {
+                expect(redismock.get(k)).to.not.exist;
+                redismock.set(k, v);
+                redismock.pexpire(k, 567, function (err, reply) {
+                    expect(err).to.not.exist;
+                    expect(reply).to.equal(1);
+                    setTimeout(function () {
+                        expect(redismock.get(k)).to.not.exist;
+                        done();
+                    }, 850);
+                });
+            }, 1500);
+        });
+        it('should update the expiry time on subsequent pexpire calls', function (done) {
+            this.timeout(5000);
+            var k = randkey();
+            var v = 'v';
+            redismock.set(k, v);
+            expect(redismock.pexpire(k, 1111)).to.equal(1);
+            setTimeout(function () {
+                expect(redismock.get(k)).to.equal(v);
+                expect(redismock.pexpire(k, 483)).to.equal(1);
+            }, 750);
+            setTimeout(function () {
+                expect(redismock.get(k)).to.equal(v);
+            }, 1200);
+            setTimeout(function () {
+                expect(redismock.get(k)).to.not.exist;
+                done();
+            }, 1900);
+        });
+        it('should delete the key if the specified timeout is less than or equal to 0', function (done) {
+            var k = randkey();
+            var v = 'v';
+            redismock.set(k, v);
+            expect(redismock.pexpire(k, 0)).to.equal(1);
+            expect(redismock.get(k)).to.not.exist;
+            expect(redismock.exists(k)).to.equal(0);
+            redismock.set(k, v);
+            redismock.pexpire(k, -1, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal(1);
+                expect(redismock.get(k)).to.not.exist;
+                expect(redismock.exists(k)).to.equal(0);
+                done();
+            });
+        });
+    });
+
+    describe('pexpireat', function () {
+        it('should return 0 for a key that does not exist', function (done) {
+            var k = randkey();
+            var v = 'v';
+            var now = (new Date()).getTime();
+            expect(redismock.pexpireat(k, now + 1111)).to.equal(0);
+            redismock.pexpireat(k, now + 2222, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal(0);
+                done();
+            });
+        });
+        it('should return 1 and expire a key at the specified timestamp', function (done) {
+            this.timeout(5000);
+            var k = randkey();
+            var v = 'v';
+            var now = (new Date()).getTime();
+            redismock.set(k, v);
+            expect(redismock.pexpireat(k, now + 999)).to.equal(1);
+            setTimeout(function () {
+                expect(redismock.get(k)).to.equal(v);
+            }, 750);
+            setTimeout(function () {
+                expect(redismock.get(k)).to.not.exist;
+                redismock.set(k, v);
+                now = (new Date()).getTime();
+                redismock.pexpireat(k, now + 1682, function (err, reply) {
+                    expect(err).to.not.exist;
+                    expect(reply).to.equal(1);
+                    setTimeout(function () {
+                        expect(redismock.get(k)).to.not.exist;
+                        done();
+                    }, 1900);
+                });
+            }, 1200);
+        });
+        it('should update the expiry time on subsequent pexpireat calls', function (done) {
+            this.timeout(5000);
+            var k = randkey();
+            var v = 'v';
+            var now = (new Date()).getTime();
+            redismock.set(k, v);
+            expect(redismock.pexpireat(k, now + 888)).to.equal(1);
+            setTimeout(function () {
+                expect(redismock.get(k)).to.equal(v);
+                expect(redismock.pexpireat(k, now + 888 + 1555)).to.equal(1);
+            }, 750);
+            setTimeout(function () {
+                expect(redismock.get(k)).to.equal(v);
+            }, 1200);
+            setTimeout(function () {
+                expect(redismock.get(k)).to.not.exist;
+                done();
+            }, 2700);
+        });
+        it('should delete the key if the specified timeout is less than or equal to 0', function (done) {
+            var k = randkey();
+            var v = 'v';
+            redismock.set(k, v);
+            expect(redismock.pexpireat(k, 0)).to.equal(1);
+            expect(redismock.get(k)).to.not.exist;
+            expect(redismock.exists(k)).to.equal(0);
+            redismock.set(k, v);
+            redismock.pexpireat(k, -1, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal(1);
+                expect(redismock.get(k)).to.not.exist;
+                expect(redismock.exists(k)).to.equal(0);
+                done();
+            });
+        });
     });
 
     describe('pttl', function () {
@@ -299,6 +699,19 @@
                 expect(err).to.exist;
                 expect(reply).to.not.exist;
                 expect(err.message.indexOf('no such key')).to.be.above(-1);
+                done();
+            });
+        });
+        it('should return OK if the new name is equal to the old', function (done) {
+            var k = randkey();
+            var v = 'v';
+            redismock.set(k, v);
+            expect(redismock.rename(k, k)).to.equal('OK');
+            expect(redismock.get(k)).to.equal(v);
+            redismock.rename(k, k, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal('OK');
+                expect(redismock.get(k)).to.equal(v);
                 done();
             });
         });

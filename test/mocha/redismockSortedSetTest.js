@@ -831,7 +831,27 @@
                 done();
             });
         });
-        xit('should return the range for -inf and +inf min/max');
+        it('should return the range for -inf and +inf min/max', function (done) {
+            var k = randkey();
+            var v1 = 'v1', v11 = 'v11', v2 = 'v2', v5 = 'v5', v7 = 'v7';
+            redismock.zadd(k, 1, v1, 1, v11, 2, v2, 5, v5, 7, v7);
+            var r = redismock.zrangebyscore(k, '-inf', 3);
+            expect(r).to.have.lengthOf(3);
+            expect(r[0]).to.equal(v1);
+            expect(r[1]).to.equal(v11);
+            expect(r[2]).to.equal(v2);
+            r = redismock.zrangebyscore(k, 3, '-inf');
+            expect(r).to.have.lengthOf(0);
+            r = redismock.zrangebyscore(k, '+inf', 3);
+            expect(r).to.have.lengthOf(0);
+            redismock.zrangebyscore(k, 3, '+inf', function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.have.lengthOf(2);
+                expect(reply[0]).to.equal(v5);
+                expect(reply[1]).to.equal(v7);
+                done();
+            });
+        });
         it('should return the range for exclusive min/max', function () {
             var k = randkey();
             var v1 = 'v1', v11 = 'v11', v2 = 'v2', v5 = 'v5', v7 = 'v7';

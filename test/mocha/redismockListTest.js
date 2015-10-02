@@ -676,6 +676,22 @@
                 done();
             });
         });
+        it('should be okay if end > the list size', function (done) {
+            var k = randkey();
+            var v = 'v', v1 = 'v1';
+            redismock.rpush(k, v1, v1, v1, v);
+            expect(redismock.llen(k)).to.equal(4);
+            expect(redismock.ltrim(k, 0, 5)).to.equal('OK');
+            expect(redismock.llen(k)).to.equal(4);
+            redismock.ltrim(k, 2, 80, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.equal('OK');
+                expect(redismock.llen(k)).to.equal(2);
+                expect(redismock.lindex(k, 0)).to.equal(v1);
+                expect(redismock.lindex(k, 1)).to.equal(v);
+                done();
+            });
+        });
     });
 
     describe('rpop', function () {
