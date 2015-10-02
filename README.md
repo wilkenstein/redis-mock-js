@@ -369,7 +369,7 @@ JavaScript engines, a somewhat specific style is required:
 
 ## Roadmap
 
-* 0.1.1
+* 0.1.2
   - Browser testing and compatibility determination.
 * 1.0.0
   - Support for different versions of mock redis that mimic different
@@ -390,6 +390,8 @@ JavaScript engines, a somewhat specific style is required:
 
 ## Versions
 
+* 0.1.1
+  - npm apparently has a 0.1.0 version, so minor bump to make npm happy.
 * 0.1.0
   - Implement all unit tests for supported commands.
   - Fix the del command.
