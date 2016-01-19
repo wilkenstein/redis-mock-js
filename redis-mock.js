@@ -76,7 +76,7 @@
             return 0;
         }
         score = this.invset[member];
-        this.set[score][this.indices[member]] = undefined;
+        this.set[score].splice(this.set[score].indexOf(member), 1);
         this.lengths[score] -= 1;
         if (this.lengths[score] === 0) {
             this.set[score] = undefined;
