@@ -369,7 +369,7 @@ JavaScript engines, a somewhat specific style is required:
 
 ## Roadmap
 
-* 0.1.2
+* 0.1.3
   - Browser testing and compatibility determination.
 * 1.0.0
   - Support for different versions of mock redis that mimic different
@@ -390,6 +390,8 @@ JavaScript engines, a somewhat specific style is required:
 
 ## Versions
 
+* 0.1.2
+  - Merge PR #15 to fix zset problems.
 * 0.1.1
   - npm apparently has a 0.1.0 version, so minor bump to make npm happy.
 * 0.1.0
