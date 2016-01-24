@@ -472,6 +472,27 @@
                 done();
             });
         });
+        it('should return the range for incremented values', function (done) {
+            var k = randkey();
+            var v1 = 'v1', v2 = 'v2', v3 = 'v3';
+            redismock.zincrby(k, 1, v1);
+            redismock.zincrby(k, 1, v2);
+            redismock.zincrby(k, 1, v2);
+            redismock.zincrby(k, 1, v3);
+            redismock.zincrby(k, 1, v3);
+            redismock.zincrby(k, 1, v3);
+            expect(redismock.zrange(k, 0, 1)).to.have.lengthOf(2);
+            expect(redismock.zrange(k, 1, 3)).to.have.lengthOf(2);
+            expect(redismock.zrange(k, 4, 5)).to.have.lengthOf(0);
+            redismock.zrange(k, 0, 2, function (err, reply) {
+                expect(err).to.not.exist;
+                expect(reply).to.have.lengthOf(3);
+                expect(reply[0]).to.equal(v1);
+                expect(reply[1]).to.equal(v2);
+                expect(reply[2]).to.equal(v3);
+                done();
+            });
+        });
         it('should return the range for negative numbers', function (done) {
             var k = randkey();
             var v1 = 'v1', v2 = 'v2', v3 = 'v3';
