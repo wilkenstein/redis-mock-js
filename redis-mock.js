@@ -1823,7 +1823,7 @@
                         return elem !== null;
                     })
                     .map(function (sm) {
-                        return cache[zsets][key].add(sm[0], sm[1].toString());
+                        return cache[zsets][key].add(sm[0], sm[1] ? sm[1].toString() : sm[1]);
                     })
                     .reduce(function (cnt, ret) {
                         return cnt + ret;
