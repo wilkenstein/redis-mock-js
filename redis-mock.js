@@ -384,6 +384,7 @@
     redismock.persist = function (key, callback) {
         if (this.exists(key) && timeouts[key]) {
             clearTimeout(timeouts[key].timeout);
+            delete timeouts[key];
             return cb(callback)(null, 1);
         }
         return cb(callback)(null, 0);

@@ -452,9 +452,11 @@
             setTimeout(function () {
                 expect(redismock.get(k)).to.equal(v);
                 expect(redismock.persist(k)).to.equal(1);
+                expect(redismock.ttl(k)).to.equal(-1);
             }, 750);
             setTimeout(function () {
                 expect(redismock.get(k)).to.equal(v);
+                expect(redismock.ttl(k)).to.equal(-1);
                 done();
             }, 1300);
         });
